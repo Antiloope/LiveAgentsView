@@ -1,75 +1,66 @@
 # AGENTS.md
 
-Instrucciones para cualquier agente (o persona) que trabaje en este repo.
+Instructions for any agent (or person) working in this repo.
 
-## Qué es este repo
+## What this repo is
 
-La fuente única de verdad del proyecto **LiveAgentsView**, más el código de la plataforma.
+The single source of truth for **LiveAgentsView**, plus the platform code.
 
-- `docs/` — toda la documentación del proyecto. Ver la tabla en [README.md](README.md).
-- `docs/sdd/` — specs de implementación para agentes. No definen producto.
-- `docs/arquitectura/workspace.dsl` — el **C4**. Es el documento del que sale la
-  estructura del código.
-- `apps/` — deployables. Cada app tiene su README con sus reglas.
-- `db/` — el esquema. `scripts/` — todo lo que hay que correr. `.github/` — CI.
-- `.cursor/`, `.claude/`, `.agents/` — configuración de herramientas de IA (skills).
-  No son documentación del negocio.
+- `docs/` — all project documentation. See the table in [README.md](README.md).
+- `docs/sdd/` — implementation specs for agents. They do not define product.
+- `apps/` — deployables. Each app has its own README with its rules.
+- `scripts/` — everything that must be run (placeholder for now).
+- `.cursor/`, `.claude/`, `.agents/` — AI tool configuration (skills).
+  Not business documentation.
 
-## Specs de implementación (`sdd`)
+## Implementation specs (`sdd`)
 
-La skill `sdd` (`.agents/skills/sdd`, también en `.claude/skills` y `.cursor/skills`)
-triage si un cambio conviene spec, y corre specify → implement → validate.
-Cursor y Claude: `/sdd`. Codex: `$sdd`. Se activa sola en cambios interesantes
-o si ya hay una spec abierta.
+The `sdd` skill (`.agents/skills/sdd`, also in `.claude/skills` and `.cursor/skills`)
+triages whether a change should have a spec, and runs specify → implement → validate.
+Cursor and Claude: `/sdd`. Codex: `$sdd`. It activates on its own for meaningful
+changes or when an open spec already exists.
 
-No es bloqueante: “rápido”, “chico”, “sin spec” o “andá de una” se hace sin spec.
-Si una spec está en juego, se actualiza hasta `validada` o `abandonada`.
-Los pasos se pueden encadenar (“especificá e implementá”, “hasta validar”).
-Detalle en [docs/sdd/README.md](docs/sdd/README.md).
+It is not blocking: "quick", "small", "no spec", or "just go" means no spec.
+If a spec is in play, keep it updated until `validated` or `abandoned`.
+Steps can be chained ("specify and implement", "through validate").
+Details in [docs/sdd/README.md](docs/sdd/README.md).
 
-## Reglas del código
+## Code rules
 
-**Nada se corre a mano.** Todo pasa por `scripts/`. Lo único instalado en la máquina
-es Docker. Si algo necesita un comando nuevo, va como script.
+**Nothing is run by hand.** Everything goes through `scripts/` once they exist.
+The only thing installed on the machine is Docker. New commands become scripts.
 
-**El C4 va primero.** Si aparece un módulo, servicio o dependencia nueva, se agrega a
-`workspace.dsl` antes de escribir el código. El diagrama define; el código sigue.
+**Writing code does not close a definition.** A human maintainer does that, and only
+then does it land in the decision log. Something being built does not make it decided.
 
-**Las migraciones no se editan una vez aplicadas.** El runner guarda el checksum y
-aborta si cambian. Para corregir, va una migración nueva.
+## Most important rule: do not mix decided with proposed
 
-**Escribir código no cierra una definición.** Eso lo hace un maintainer humano, y
-recién ahí baja al log de decisiones. Que algo esté construido no lo vuelve decidido.
+The documents `docs/01-vision.md`, `docs/02-scope.md`, and `docs/03-decisions.md`
+contain **only what the team decided**.
 
-## Regla más importante: no mezclar lo decidido con lo propuesto
+`docs/06-status.md` is different: it decides nothing; it mirrors the others and the
+code that exists. Update it when a fact changes, never to anticipate one.
 
-Los documentos `docs/01-vision.md`, `docs/02-scope.md` y `docs/03-decisions.md`
-contienen **solo lo que el equipo decidió**.
+- If you document something, write it exactly as whoever decided it said it. Do not
+  expand it, improve it, or add scope on your own.
+- Any proposal or feature you come up with goes to
+  [docs/05-ideas-to-discuss.md](docs/05-ideas-to-discuss.md), marked as unagreed,
+  or is raised in chat. Never directly in a definition document.
+- This also applies on the technical side: do not expand product scope on your own.
 
-`docs/06-status.md` es distinto: no decide nada, es el espejo de los otros y del
-código que existe. Se actualiza cuando cambia un hecho, nunca para anticipar uno.
+If something is not in these documents, it is not decided — do not treat it as if it were.
 
-- Si vas a documentar algo, escribilo tal como lo dijo quien lo decidió. No lo
-  amplíes, no lo mejores, no le agregues alcance de tu propia iniciativa.
-- Cualquier propuesta o feature que se te ocurra va a
-  [docs/05-ideas-to-discuss.md](docs/05-ideas-to-discuss.md), marcada como no acordada,
-  o se plantea en el chat. Nunca directamente en un documento de definición.
-- Esto vale también para el lado técnico: no ampliar el alcance del producto
-  por iniciativa propia.
+## Documentation workflow
 
-Si algo no está en estos documentos, no está decidido — no lo trates como si lo estuviera.
+1. Everything lands raw in `docs/00-inbox.md`.
+2. It gets distilled into the right document.
+3. What gets decided is logged with a date in `docs/03-decisions.md`.
+4. What stays unresolved is noted in `docs/04-open-questions.md`.
+5. When a question is answered, remove it from open questions and check who cited it.
 
-## Flujo de trabajo de la documentación
-
-1. Todo entra crudo por `docs/00-inbox.md`.
-2. Se destila hacia el documento que corresponda.
-3. Lo que se decide se registra con fecha en `docs/03-decisions.md`.
-4. Lo que queda sin resolver se anota en `docs/04-open-questions.md`.
-5. Cuando una pregunta se responde, se saca de las abiertas y se revisa quién la citaba.
-
-Detalle completo en [README.md](README.md).
+Full detail in [README.md](README.md).
 
 ## Open source
 
-Este es un proyecto público. Los cambios van por pull request. Respetá
-[CONTRIBUTING.md](CONTRIBUTING.md) y [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+This is a public project. Changes go through pull request. Follow
+[CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

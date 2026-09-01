@@ -1,6 +1,6 @@
-# Overrides de desarrollo. Se combina con compose.yaml:
+# Development overrides. Combined with compose.yaml:
 #   docker compose -f compose.yaml -f compose.dev.yaml ...
 
 services:
   db:
-  # Agregar acá apps con target dev + watch cuando existan en apps/
+  # Add apps here with dev target + watch when they exist in apps/

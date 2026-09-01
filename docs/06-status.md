@@ -1,34 +1,33 @@
-# Estado
+# Status
 
-Espejo de los documentos de definición y del código que existe. **No decide nada.**
-Se actualiza cuando cambia un hecho, nunca para anticipar uno.
+Mirror of the definition documents and the code that exists. **Decides nothing.**
+Updated when a fact changes, never to anticipate one.
 
-Última actualización: 2026-09-01
+Last updated: 2026-09-01
 
-## Documentación
+## Documentation
 
-| Área | Estado |
+| Area | Status |
 |---|---|
-| Visión | borrador vacío — [01-vision.md](01-vision.md) |
-| Alcance | borrador vacío — [02-scope.md](02-scope.md) |
-| Decisiones | 1 entrada — [03-decisions.md](03-decisions.md) |
-| Preguntas abiertas | 3 — [04-open-questions.md](04-open-questions.md) |
+| Vision | empty draft — [01-vision.md](01-vision.md) |
+| Scope | empty draft — [02-scope.md](02-scope.md) |
+| Decisions | 1 entry — [03-decisions.md](03-decisions.md) |
+| Open questions | 3 — [04-open-questions.md](04-open-questions.md) |
 
-## Código e infraestructura
+## Code and infrastructure
 
-| Pieza | Estado |
+| Piece | Status |
 |---|---|
-| Estructura del repo | hecho — docs, sdd, scripts, apps/, db/, .github |
-| Apps en `apps/` | pendiente — carpeta lista, sin deployables |
-| Base de datos | pendiente — runner listo, sin migraciones |
-| Compose local | esbozo — solo Postgres |
-| CI | hecho — workflow base con detección de cambios |
-| C4 | esbozo — workspace mínimo en [arquitectura/](arquitectura/workspace.dsl) |
+| Repository structure | done — docs, sdd, scripts placeholder, apps/ |
+| Apps in `apps/` | pending — folder ready, no deployables |
+| Compose local | sketch — Postgres only |
+| Scripts | placeholder — [scripts/README.md](../scripts/README.md) |
+| CI | not set up yet |
 
-## Specs SDD
+## SDD specs
 
-Ninguna spec creada todavía. Índice en [sdd/README.md](sdd/README.md).
+No specs created yet. Index in [sdd/README.md](sdd/README.md).
 
-## Próximo paso sugerido
+## Suggested next step
 
-Definir visión y alcance (destilar el bloque del inbox del 2026-09-01).
+Define vision and scope (distill the 2026-09-01 inbox block).

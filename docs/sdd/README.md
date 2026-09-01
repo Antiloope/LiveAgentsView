@@ -1,28 +1,28 @@
-# Specs de implementación
+# Implementation specs
 
-Harness para agentes (Cursor, Claude Code, Codex). **No define producto.**
-La definición vive en `docs/01-vision.md`, `docs/02-scope.md` y `docs/03-decisions.md`.
-Una spec de acá no cierra una decisión: la cita o, si falta, para y pregunta.
+Harness for agents (Cursor, Claude Code, Codex). **Does not define product.**
+Definition lives in `docs/01-vision.md`, `docs/02-scope.md`, and `docs/03-decisions.md`.
+A spec here does not close a decision: it cites it or, if missing, stops and asks.
 
-Skill: `sdd` (`.agents/skills/sdd`). Invocación: `/sdd` en Cursor y Claude, `$sdd` en Codex.
-También se activa sola cuando el cambio es interesante o ya hay una spec en juego.
+Skill: `sdd` (`.agents/skills/sdd`). Invocation: `/sdd` in Cursor and Claude, `$sdd` in Codex.
+Also activates on its own when the change is meaningful or a spec is already in play.
 
-No es bloqueante. Tareas chicas o “andá de una” siguen sin spec.
-Si una spec **está en uso**, se actualiza hasta el final (o se marca `abandonada`).
+Not blocking. Small tasks or "just go" proceed without a spec.
+If a spec **is in use**, keep it updated through the end (or mark it `abandoned`).
 
-## Flujo
+## Flow
 
-`specify` → (humano) → `implement` → (humano) → `validate`
+`specify` → (human) → `implement` → (human) → `validate`
 
-Se pueden encadenar: “especificá e implementá”, “hasta validar”.
-Cada paso deja un bloque de handoff para pegárselo a otro agente.
+Can be chained: "specify and implement", "through validate".
+Each step leaves a handoff block to paste into another agent.
 
 ## Specs
 
-| Spec | Estado | Siguiente |
+| Spec | Status | Next |
 |---|---|---|
-| _(ninguna todavía)_ | — | — |
+| _(none yet)_ | — | — |
 
-Estados: `borrador` · `lista` · `en-curso` · `hecha` · `validada` · `abandonada`.
+Statuses: `draft` · `ready` · `in-progress` · `done` · `validated` · `abandoned`.
 
-Plantilla: [templates/spec.md](templates/spec.md). Archivos en [specs/](specs/).
+Template: [templates/spec.md](templates/spec.md). Files in [specs/](specs/).

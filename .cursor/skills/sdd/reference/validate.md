@@ -1,29 +1,29 @@
 # Validate
 
-Chequear el código contra la spec. No reimplementar ni “mejorar” alcance.
+Check the code against the spec. Do not reimplement or "improve" scope.
 
-## Antes
+## Before
 
-Spec en `hecha` o `en-curso` (si encadenaron). Si está `borrador`, no hay nada que validar.
+Spec in `done` or `in-progress` (if they chained). If it is `draft`, there is nothing to validate.
 
-## Qué mirar
+## What to check
 
-1. Cada ítem de **Aceptación**: sí / no / no aplica, con evidencia (archivo, test, comportamiento).
-2. **Fuera de alcance:** ¿se coló algo?
-3. ¿La spec describe lo que hay? Si el código divergió y la spec no se actualizó, eso es fallo:
-   actualizar la spec o marcar el hueco; no dejar las dos versiones.
-4. Reglas de `AGENTS.md` que la spec tocaba (C4, migraciones, definición vs código).
+1. Each **Acceptance** item: yes / no / n/a, with evidence (file, test, behavior).
+2. **Out of scope:** did anything slip in?
+3. Does the spec describe what exists? If the code diverged and the spec was not updated, that is a failure:
+   update the spec or mark the gap; do not leave both versions.
+4. `AGENTS.md` rules the spec touched (definition vs code).
 
-No un review genérico de estilo. Eso no es este paso.
+Not a generic style review. That is not this step.
 
-## Después
+## After
 
-En **Validación** de la spec: resultado por ítem y huecos.
+In the spec's **Validation** section: result per item and gaps.
 
-- Todo cubierto: `estado: validada`, `siguiente: ninguna`.
-- Huecos chicos: listarlos; el usuario elige si se arreglan ahora o otra spec.
-  No dejar `en-curso` a medias: o se cierran en este turno y queda `validada`,
-  o `hecha` con los huecos escritos y `siguiente: implement`.
-- Spec obsoleta a propósito: `abandonada` y por qué.
+- Everything covered: `status: validated`, `next: none`.
+- Small gaps: list them; the user chooses whether to fix now or in another spec.
+  Do not leave `in-progress` half-done: either close in this turn and mark `validated`,
+  or `done` with gaps written and `next: implement`.
+- Spec obsolete on purpose: `abandoned` and why.
 
-Actualizar la tabla en `docs/sdd/README.md`. Handoff. Parar.
+Update the table in `docs/sdd/README.md`. Handoff. Stop.

@@ -1,24 +1,23 @@
-# Decisiones
+# Decisions
 
-Log de decisiones tomadas, con fecha y motivo. Solo entra acá lo **acordado**.
+Log of decisions made, with date and rationale. Only **agreed** items go here.
 
-Formato:
+Format:
 
 ```
-## YYYY-MM-DD — Título corto
+## YYYY-MM-DD — Short title
 
-**Quién:** …
-**Decisión:** …
-**Motivo:** …
+**Who:** …
+**Decision:** …
+**Rationale:** …
 ```
 
 ---
 
-## 2026-09-01 — Repo open source con estructura docs-first
+## 2026-09-01 — Open-source repo with docs-first structure
 
-**Quién:** Rodrigo
-**Decisión:** El proyecto es open source bajo licencia MIT. La documentación de
-definición vive en `docs/`; las specs de implementación en `docs/sdd/`. El desarrollo
-local usa Docker y scripts como único punto de entrada.
-**Motivo:** Replicar el flujo de trabajo probado en sincro, adaptado a un proyecto
-público sin acoplar api+frontend desde el inicio.
+**Who:** Rodrigo
+**Decision:** The project is open source under the MIT license. Definition documentation
+lives in `docs/`; implementation specs in `docs/sdd/`. Local development uses Docker.
+**Rationale:** Replicate the workflow proven in sincro, adapted to a public project
+without coupling api+frontend from the start.

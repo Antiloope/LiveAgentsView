@@ -1,5 +1,5 @@
-# Servicios compartidos — imágenes de producción / base local.
-# Overrides de desarrollo en compose.dev.yaml
+# Shared services — production images / local base.
+# Development overrides in compose.dev.yaml
 
 services:
   db:

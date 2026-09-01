@@ -1,24 +1,24 @@
-# Preguntas abiertas
+# Open questions
 
-Lo que falta definir. Cada pregunta tiene un número que no se recicla.
+What still needs to be defined. Each question has a number that is not reused.
 
-Cuando se responde, **se saca de acá** y se registra la decisión en
-[03-decisions.md](03-decisions.md). Después, buscar citas a ese número en el resto
-de `docs/` para que no queden mintiendo.
+When answered, **remove it from here** and log the decision in
+[03-decisions.md](03-decisions.md). Then search for citations to that number across
+the rest of `docs/` so nothing is left outdated.
 
 ---
 
-## Q-01 — ¿Qué es LiveAgentsView?
+## Q-01 — What is LiveAgentsView?
 
-**Contexto:** El repo arrancó con la estructura pero sin definición de producto.
-**Bloquea:** visión, alcance, C4, primera app en `apps/`.
+**Context:** The repo started with structure but no product definition.
+**Blocks:** vision, scope, first app in `apps/`.
 
-## Q-02 — ¿Qué stack técnico usar?
+## Q-02 — What technical stack to use?
 
-**Contexto:** La estructura admite varios lenguajes en `apps/`. No hay decisión aún.
-**Bloquea:** compose, CI por app, primera spec de implementación.
+**Context:** The structure allows multiple languages in `apps/`. No decision yet.
+**Blocks:** compose, first implementation spec.
 
-## Q-03 — ¿Dónde se publica el remoto?
+## Q-03 — Where is the remote published?
 
-**Contexto:** Falta crear el repo en GitHub (u otro host) y configurar CI remoto.
-**Bloquea:** badges, URLs en README, deploy.
+**Context:** The GitHub repo (or other host) and remote CI still need to be set up.
+**Blocks:** badges, URLs in README, deploy.

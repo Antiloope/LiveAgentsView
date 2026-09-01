@@ -1,34 +1,34 @@
-# Docs de definición
+# Definition docs
 
-Las specs de `docs/sdd/specs/` no reemplazan este flujo. Esto es la fuente de verdad.
+Specs in `docs/sdd/specs/` do not replace this flow. This is the source of truth.
 
 ## inbox
 
-Volcar crudo en `docs/00-inbox.md`: un bloque con fecha, sin ordenar, sin destilar.
-Nada de esto es definición.
+Dump raw into `docs/00-inbox.md`: one block with a date, unsorted, undistilled.
+Nothing here is definition.
 
-## destilar
+## distill
 
-Del inbox al documento que corresponda (`01-vision`, `02-scope`, etc.).
+From the inbox to the right document (`01-vision`, `02-scope`, etc.).
 
-- Tal cual lo dijo quien lo decidió. No ampliar, no “mejorar”.
-- Propuesta o idea del agente → `docs/05-ideas-to-discuss.md`, marcada como no acordada.
-- Decisión con fecha → también `docs/03-decisions.md`.
-- Sin resolver → `docs/04-open-questions.md` (números no se reciclan).
-- Marcar el bloque del inbox como destilado.
+- Exactly as whoever decided it said. Do not expand or "improve".
+- Agent proposal or idea → `docs/05-ideas-to-discuss.md`, marked unagreed.
+- Decision with date → also `docs/03-decisions.md`.
+- Unresolved → `docs/04-open-questions.md` (numbers are not reused).
+- Mark the inbox block as distilled.
 
-## decidir
+## decide
 
-Solo cuando un maintainer lo dijo. Entrada en `03-decisions` con fecha, por qué, quién.
-Si cerraba una pregunta de `04`, **sacarla** de abiertas y buscar citas a ese número
-en el resto de `docs/` para que no queden mintiendo.
+Only when a maintainer said so. Entry in `03-decisions` with date, why, who.
+If it closed a question in `04`, **remove it** from open questions and search for citations
+to that number across the rest of `docs/` so nothing is left outdated.
 
-## estado
+## status
 
-`docs/06-status.md` es espejo. Actualizar cuando cambió un hecho (código o docs).
-Nunca para anticipar. No decide nada.
+`docs/06-status.md` is a mirror. Update when a fact changed (code or docs).
+Never to anticipate. Decides nothing.
 
-## Relación con las specs
+## Relation to specs
 
-Una spec de implementación cita lo decidido. Si destilar/decidir cambia algo que una
-spec abierta citaba, actualizar esa spec en el mismo turno o marcarla `abandonada`.
+An implementation spec cites what is decided. If distill/decide changes something an
+open spec cited, update that spec in the same turn or mark it `abandoned`.

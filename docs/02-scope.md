@@ -1,15 +1,15 @@
-# Alcance
+# Scope
 
-> **Estado:** borrador — pendiente de destilar desde el inbox.
+> **Status:** draft — pending distillation from the inbox.
 
-## Qué hace
+## What it does
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_
 
-## Qué no hace
+## What it does not do
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_
 
-## Límites explícitos
+## Explicit boundaries
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_

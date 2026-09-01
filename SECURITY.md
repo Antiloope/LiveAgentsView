@@ -8,20 +8,18 @@
 
 ## Reporting a Vulnerability
 
-**No abras un issue público** para vulnerabilidades de seguridad.
+**Do not open a public issue** for security vulnerabilities.
 
-Enviá un mail a **rodrigopizarro1234@gmail.com** con:
+Email **rodrigopizarro1234@gmail.com** with:
 
-- Descripción del problema
-- Pasos para reproducirlo
-- Impacto estimado
-- Versión o commit afectado (si aplica)
+- Description of the issue
+- Steps to reproduce
+- Estimated impact
+- Affected version or commit (if applicable)
 
-Intentamos responder en 72 horas. Te avisaremos cuando se publique un fix.
+We aim to respond within 72 hours. We will let you know when a fix is published.
 
-## Buenas prácticas en este repo
+## Good practices in this repo
 
-- No commitees secretos (`.env`, claves, tokens). Usá `.env.example` como plantilla.
-- Las migraciones aplicadas no se editan: corregí con una migración nueva.
-- Los cambios de seguridad relevantes deberían tener spec en `docs/sdd/` cuando el
-  cambio no es trivial.
+- Do not commit secrets (`.env`, keys, tokens). Use `.env.example` as a template.
+- Relevant security changes should have a spec in `docs/sdd/` when the change is not trivial.

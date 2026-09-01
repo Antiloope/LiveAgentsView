@@ -1,40 +1,37 @@
 # LiveAgentsView
 
-Proyecto open source con documentación primero y desarrollo spec-driven (SDD).
+Open-source project with docs-first and spec-driven development (SDD).
 
-La fuente de verdad del **qué** vive en `docs/`. El **cómo** de cada cambio
-interesante vive en `docs/sdd/`. El código sigue esos documentos, no al revés.
+The source of truth for **what** lives in `docs/`. The **how** for each meaningful
+change lives in `docs/sdd/`. Code follows those documents, not the other way around.
 
-Ver [AGENTS.md](AGENTS.md) para reglas de trabajo (humanos y agentes).
+See [AGENTS.md](AGENTS.md) for working rules (humans and agents).
 
-## Licencia
+## License
 
 [MIT](LICENSE)
 
-## Cómo funciona la documentación
+## How documentation works
 
-1. **Todo entra crudo** por [docs/00-inbox.md](docs/00-inbox.md).
-2. **Se destila** hacia el documento que corresponda.
-3. **Lo que se decide** se registra con fecha en [docs/03-decisions.md](docs/03-decisions.md).
-4. **Lo que queda sin resolver** va a [docs/04-open-questions.md](docs/04-open-questions.md).
-5. **Dónde está todo hoy** se lee en [docs/06-status.md](docs/06-status.md) — no decide nada, solo refleja hechos.
+1. **Everything lands raw** in [docs/00-inbox.md](docs/00-inbox.md).
+2. **It gets distilled** into the right document.
+3. **What gets decided** is logged with a date in [docs/03-decisions.md](docs/03-decisions.md).
+4. **What stays unresolved** goes to [docs/04-open-questions.md](docs/04-open-questions.md).
+5. **Where things stand today** is in [docs/06-status.md](docs/06-status.md) — it decides nothing, it only reflects facts.
 
-Regla: si algo no está en los documentos de definición, no está decidido.
+Rule: if something is not in the definition documents, it is not decided.
 
-## Estructura del repo
+## Repository structure
 
 ```
 .
-├── docs/                documentación del proyecto
-│   ├── sdd/             specs de implementación para agentes (no es definición)
-│   └── arquitectura/    el C4: de acá sale la estructura del código
-├── apps/                deployables (cada uno con su README)
-├── db/                  esquema: migraciones SQL y su runner
-├── scripts/             todo lo que hay que correr
-├── .github/workflows/   CI
-├── .agents/skills/      skills canónicas para agentes
-├── compose.yaml         servicios compartidos
-├── compose.dev.yaml     overrides de desarrollo
+├── docs/                project documentation
+│   └── sdd/             implementation specs for agents (not product definition)
+├── apps/                deployables (each with its own README)
+├── scripts/             entry point for runnable commands (placeholder for now)
+├── .agents/skills/      canonical agent skills
+├── compose.yaml         shared services
+├── compose.dev.yaml     development overrides
 ├── .env.example
 ├── README.md
 ├── AGENTS.md
@@ -43,34 +40,30 @@ Regla: si algo no está en los documentos de definición, no está decidido.
 └── LICENSE
 ```
 
-## Documentos
+## Documents
 
-| Doc | Qué contiene |
+| Doc | Contents |
 |---|---|
-| [docs/00-inbox.md](docs/00-inbox.md) | Volcado crudo. Nada de esto es definitivo. |
-| [docs/01-vision.md](docs/01-vision.md) | Visión, propósito y público del proyecto. |
-| [docs/02-scope.md](docs/02-scope.md) | Alcance funcional: qué hace y qué no. |
-| [docs/03-decisions.md](docs/03-decisions.md) | Log de decisiones tomadas, con fecha y motivo. |
-| [docs/04-open-questions.md](docs/04-open-questions.md) | Lo que falta definir. |
-| [docs/05-ideas-to-discuss.md](docs/05-ideas-to-discuss.md) | Propuestas **no acordadas**. |
-| [docs/06-status.md](docs/06-status.md) | Foto de dónde está todo. No decide nada. |
-| [docs/sdd/](docs/sdd/README.md) | Specs de implementación para agentes. **No define producto.** |
+| [docs/00-inbox.md](docs/00-inbox.md) | Raw dump. Nothing here is final. |
+| [docs/01-vision.md](docs/01-vision.md) | Vision, purpose, and audience. |
+| [docs/02-scope.md](docs/02-scope.md) | Functional scope: what it does and what it does not. |
+| [docs/03-decisions.md](docs/03-decisions.md) | Log of decisions made, with date and rationale. |
+| [docs/04-open-questions.md](docs/04-open-questions.md) | What still needs to be defined. |
+| [docs/05-ideas-to-discuss.md](docs/05-ideas-to-discuss.md) | **Unagreed** proposals. |
+| [docs/06-status.md](docs/06-status.md) | Snapshot of where things stand. Decides nothing. |
+| [docs/sdd/](docs/sdd/README.md) | Implementation specs for agents. **Does not define product.** |
 
-## Desarrollo
+## Development
 
-**Lo único que hace falta instalado es Docker.** Ni Go, ni Node, ni psql en el host.
+**The only thing you need installed is Docker.** No Go, Node, or psql on the host.
 
-```bash
-./scripts/up.sh
-```
+Runnable commands will live in [scripts/](scripts/README.md). That directory is a placeholder for now.
 
-El resto de los comandos está en [scripts/README.md](scripts/README.md).
+## Contributing
 
-## Contribuir
-
-Leé [CONTRIBUTING.md](CONTRIBUTING.md). Para reportar bugs o pedir features, usá los
+Read [CONTRIBUTING.md](CONTRIBUTING.md). To report bugs or request features, use the
 [issue templates](.github/ISSUE_TEMPLATE/).
 
-## Estado
+## Status
 
-Arranque: 2026-09-01. La foto completa vive en [docs/06-status.md](docs/06-status.md).
+Started: 2026-09-01. The full snapshot lives in [docs/06-status.md](docs/06-status.md).

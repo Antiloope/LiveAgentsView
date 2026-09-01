@@ -1,11 +1,11 @@
 # OS
 .DS_Store
 
-# Editores
+# Editors
 .vscode/
 .idea/
 
-# Config local de herramientas (no compartir entre máquinas)
+# Local tool config (do not share across machines)
 .claude/settings.local.json
 
 # Node
@@ -33,9 +33,5 @@ __pycache__/
 .venv/
 venv/
 
-# Caché de Structurizr (el modelo es workspace.dsl, esto es lo que genera al verlo)
-docs/arquitectura/.structurizr/
-
-# Salidas de herramientas (se regeneran solas)
+# Tool outputs (regenerated automatically)
 *.tsbuildinfo
-docs/arquitectura/workspace.json

@@ -1,68 +1,66 @@
 # Contributing to LiveAgentsView
 
-Gracias por interesarte en contribuir. Este repo sigue un flujo **docs-first** y
-**spec-driven** (SDD): la definición vive en `docs/`, las specs de implementación en
-`docs/sdd/`, y el código sigue esos documentos.
+Thanks for your interest in contributing. This repo follows a **docs-first** and
+**spec-driven** (SDD) flow: definition lives in `docs/`, implementation specs in
+`docs/sdd/`, and code follows those documents.
 
-## Antes de empezar
+## Before you start
 
-1. Leé [README.md](README.md) y [AGENTS.md](AGENTS.md).
-2. Revisá [docs/06-status.md](docs/06-status.md) para saber qué está decidido y qué falta.
-3. Para bugs o features, abrí un issue antes de un PR grande (opcional para cambios chicos).
+1. Read [README.md](README.md) and [AGENTS.md](AGENTS.md).
+2. Check [docs/06-status.md](docs/06-status.md) to see what is decided and what is missing.
+3. For bugs or features, open an issue before a large PR (optional for small changes).
 
-## Desarrollo local
+## Local development
 
-Solo necesitás Docker:
+You only need Docker:
 
 ```bash
-git clone <url-del-repo>
+git clone <repo-url>
 cd LiveAgentsView
 cp .env.example .env
-./scripts/up.sh
 ```
 
-Más comandos en [scripts/README.md](scripts/README.md).
+Runnable commands will live in [scripts/](scripts/README.md) once they are added.
 
-## Flujo de cambios
+## Change flow
 
-### Cambios chicos
+### Small changes
 
-Typos, fixes puntuales, tests: PR directo, sin spec.
+Typos, targeted fixes, tests: direct PR, no spec.
 
-### Cambios interesantes
+### Meaningful changes
 
-Features, refactors, módulos nuevos, cambios de arquitectura:
+Features, refactors, new modules:
 
-1. Abrí o actualizá una spec en `docs/sdd/specs/` (plantilla en `docs/sdd/templates/spec.md`).
-2. Pasá por specify → implement → validate (skill `sdd`, invocación `/sdd`).
-3. Si el cambio toca definición de producto, **no** lo cierres en la spec: va al inbox o a
-   `docs/05-ideas-to-discuss.md` hasta que un maintainer lo decida.
+1. Open or update a spec in `docs/sdd/specs/` (template in `docs/sdd/templates/spec.md`).
+2. Go through specify → implement → validate (`sdd` skill, `/sdd` invocation).
+3. If the change touches product definition, **do not** close it in the spec: it goes to
+   the inbox or `docs/05-ideas-to-discuss.md` until a maintainer decides.
 
-### Documentación de producto
+### Product documentation
 
-- Volcado crudo → `docs/00-inbox.md`
-- Decisiones → `docs/03-decisions.md` (con fecha)
-- Preguntas sin resolver → `docs/04-open-questions.md`
-- Propuestas no acordadas → `docs/05-ideas-to-discuss.md`
+- Raw dump → `docs/00-inbox.md`
+- Decisions → `docs/03-decisions.md` (with date)
+- Unresolved questions → `docs/04-open-questions.md`
+- Unagreed proposals → `docs/05-ideas-to-discuss.md`
 
 ## Pull requests
 
-- Una idea por PR cuando sea posible.
-- Describí qué cambia y por qué.
-- Si hay spec, linkeala (`docs/sdd/specs/<slug>.md`).
-- El CI tiene que pasar.
-- Un maintainer revisa antes de merge.
+- One idea per PR when possible.
+- Describe what changes and why.
+- If there is a spec, link it (`docs/sdd/specs/<slug>.md`).
+- A maintainer reviews before merge.
 
 ## Commits
 
-Mensajes claros en español o inglés (consistente dentro del PR). Preferí el imperativo:
-"Agrega migración para usuarios", "Corrige runner de migraciones".
+Clear messages in English. Prefer the imperative:
+"Add user model", "Fix compose healthcheck".
 
-## Código de conducta
+## Code of conduct
 
-Este proyecto adopta el [Contributor Covenant](CODE_OF_CONDUCT.md). Al participar,
-aceptás cumplirlo.
+This project adopts the [Contributor Covenant](CODE_OF_CONDUCT.md). By participating,
+you agree to follow it.
 
-## Licencia
+## License
 
-Al contribuir, aceptás que tu código se publique bajo la [licencia MIT](LICENSE).
+By contributing, you agree that your code is published under the [MIT license](LICENSE).

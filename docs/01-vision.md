@@ -1,19 +1,19 @@
-# Visión
+# Vision
 
-> **Estado:** borrador — pendiente de destilar desde el inbox.
+> **Status:** draft — pending distillation from the inbox.
 
-## Qué es LiveAgentsView
+## What LiveAgentsView is
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_
 
-## Para quién
+## Who it is for
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_
 
-## Por qué existe
+## Why it exists
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_
 
-## Principios
+## Principles
 
-_(Completar cuando se defina.)_
+_(To be completed when defined.)_

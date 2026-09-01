@@ -1,18 +1,18 @@
-# Inbox — volcado crudo
+# Inbox — raw dump
 
-Todo entra acá primero, sin ordenar. Nada de este documento es una definición firme
-hasta que se destile al doc que corresponda.
+Everything lands here first, unsorted. Nothing in this document is a firm definition
+until it is distilled into the right doc.
 
-Formato: un bloque por sesión o conversación, con fecha. Lo ya procesado se marca ~~tachado~~
-o se mueve, para que siempre se vea qué queda pendiente de destilar.
+Format: one block per session or conversation, with a date. Already processed items are
+marked ~~strikethrough~~ or moved, so it is always clear what still needs distilling.
 
 ---
 
-## 2026-09-01 — Arranque del repo
+## 2026-09-01 — Repository bootstrap
 
-**Estado: pendiente de destilar.**
+**Status: pending distillation.**
 
-- Se creó el repo `LiveAgentsView` con estructura inspirada en sincro.
-- Es open source (MIT).
-- Todavía no hay definición de producto ni apps concretas.
-- Falta: visión, alcance, stack, y qué deployables van en `apps/`.
+- Created the `LiveAgentsView` repo with a structure inspired by sincro.
+- It is open source (MIT).
+- There is still no product definition or concrete apps.
+- Missing: vision, scope, stack, and which deployables go in `apps/`.

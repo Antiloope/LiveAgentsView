@@ -1,3 +1,3 @@
 # Claude
 
-Seguí [AGENTS.md](AGENTS.md). Specs de implementación: skill `sdd`.
+Follow [AGENTS.md](AGENTS.md). Implementation specs: `sdd` skill.

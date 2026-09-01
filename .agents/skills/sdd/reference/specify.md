@@ -1,38 +1,38 @@
 # Specify
 
-Escribir una spec que otro agente pueda implementar sin esta conversación.
+Write a spec another agent can implement without this conversation.
 
-## Preguntas
+## Questions
 
-Si el pedido es vago, una ronda de 2–3 preguntas y parar, salvo cadena explícita.
-No preguntar lo que ya está en `docs/03`, `docs/02`, `docs/01` o el C4.
-Afirmar la lectura más probable y pedir corrección.
+If the request is vague, one round of 2–3 questions and stop, unless there is an explicit chain.
+Do not ask what is already in `docs/03`, `docs/02`, or `docs/01`.
+State the most likely reading and ask for correction.
 
-Preguntas que suelen cambiar el resultado:
+Questions that often change the outcome:
 
-- Qué tiene que quedar verdadero al terminar (no “qué archivos”).
-- Qué queda afuera.
-- Restricciones: C4, módulo dueño, no ampliar producto.
-- Cadena: ¿solo spec, + implementar, + validar?
+- What must be true when done (not "which files").
+- What stays out.
+- Constraints: owning module, do not expand product.
+- Chain: spec only, + implement, + validate?
 
-Si el pedido **es** una definición de producto no decidida: no specs de implementación.
-Inbox o `docs/05-ideas-to-discuss.md`, o preguntarle a un maintainer. Ver [docs.md](docs.md).
+If the request **is** an undecided product definition: no implementation spec.
+Inbox or `docs/05-ideas-to-discuss.md`, or ask a maintainer. See [docs.md](docs.md).
 
-## Archivo
+## File
 
-1. Slug kebab-case. Path: `docs/sdd/specs/<slug>.md`.
-2. Copiar [docs/sdd/templates/spec.md](../../../../../docs/sdd/templates/spec.md).
-3. Llenar intento, fuera de alcance, ya decidido (citas), aceptación, preguntas que queden.
-4. `estado: borrador` si hay preguntas; `lista` si se puede implementar.
-5. `siguiente: implement` cuando esté `lista`; si no, `specify`.
-6. Actualizar la tabla de [docs/sdd/README.md](../../../../../docs/sdd/README.md).
+1. Kebab-case slug. Path: `docs/sdd/specs/<slug>.md`.
+2. Copy [docs/sdd/templates/spec.md](../../../../../docs/sdd/templates/spec.md).
+3. Fill intent, out of scope, already decided (citations), acceptance, remaining questions.
+4. `status: draft` if questions remain; `ready` if it can be implemented.
+5. `next: implement` when `ready`; otherwise `specify`.
+6. Update the table in [docs/sdd/README.md](../../../../../docs/sdd/README.md).
 
-La spec tiene que ser autocontenida: un agente frío lee ese archivo y sabe qué hacer.
-No depender del chat. Aceptación en ítems verificables, no “que quede bien”.
+The spec must be self-contained: a cold agent reads that file and knows what to do.
+Do not depend on chat. Acceptance in verifiable items, not "make it good".
 
-## Cierre
+## Close
 
-- Sin cadena: mostrar el path, las preguntas que quedan, el bloque de handoff, **parar**.
-- Con `specify+implement`: marcar `lista` (el usuario ya encadenó; eso vale como ok)
-  y seguir a [implement.md](implement.md).
-- No codear en este paso salvo que la cadena lo pida.
+- No chain: show the path, remaining questions, handoff block, **stop**.
+- With `specify+implement`: mark `ready` (the user already chained; that counts as ok)
+  and continue to [implement.md](implement.md).
+- Do not code in this step unless the chain asks for it.

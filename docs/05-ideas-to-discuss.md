@@ -1,17 +1,17 @@
-# Ideas a debatir
+# Ideas to discuss
 
-Propuestas **no acordadas**. Nada de acá es definición hasta discutirlo y moverlo
-al documento que corresponda (o a [03-decisions.md](03-decisions.md)).
+**Unagreed** proposals. Nothing here is definition until discussed and moved to the
+right document (or to [03-decisions.md](03-decisions.md)).
 
-Formato:
+Format:
 
 ```
-## IDEA-NN — Título
+## IDEA-NN — Title
 
-**Propuesta:** …
-**Estado:** no acordada
+**Proposal:** …
+**Status:** unagreed
 ```
 
 ---
 
-_(Vacío por ahora.)_
+_(Empty for now.)_

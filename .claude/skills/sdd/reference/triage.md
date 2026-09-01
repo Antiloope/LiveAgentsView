@@ -1,58 +1,58 @@
 # Triage
 
-Correr esto cuando el usuario pide un cambio y no nombró un paso.
+Run this when the user asks for a change and did not name a step.
 
-## 1. ¿Ya hay spec?
+## 1. Is there already a spec?
 
-Si un archivo en `docs/sdd/specs/` matchea (título, slug, archivos que toca):
-cargar [implement.md](implement.md) o [validate.md](validate.md) según `siguiente`.
-No ofrecer “¿arrancamos de cero?”.
+If a file in `docs/sdd/specs/` matches (title, slug, files touched):
+load [implement.md](implement.md) or [validate.md](validate.md) based on `next`.
+Do not offer "start from scratch?".
 
-## 2. ¿Es interesante?
+## 2. Is it interesting?
 
-**Sí** (recomendar spec, no codear todavía):
+**Yes** (recommend a spec, do not code yet):
 
-- Módulo, tabla, servicio o dependencia nueva (C4)
-- Flujo o componente nuevo
-- Comportamiento de producto, permisos, onboarding
-- Más de un enfoque razonable, o el pedido es vago
-- Cruza varias apps o capas, o varios docs de definición
+- New module, table, service, or dependency
+- New flow or component
+- Product behavior, permissions, onboarding
+- More than one reasonable approach, or the request is vague
+- Crosses several apps or layers, or several definition docs
 
-**No** (hacerlo, sin spec):
+**No** (do it, no spec):
 
-- Typo, lint, test puntual, rename local, una línea
-- El usuario dijo rápido / chico / sin spec / andá de una
+- Typo, lint, targeted test, local rename, one line
+- The user said quick / small / no spec / just go
 
-En el límite, una frase: qué se va a tocar y “¿spec o de una?”.
-Si no contestan y el cambio es chico, de una. Si es grande, preguntar y parar.
+On the edge, one sentence: what will be touched and "spec or just go?".
+If they do not answer and the change is small, just go. If it is large, ask and stop.
 
-## 3. Recomendar
+## 3. Recommend
 
-No un sermón. Tres líneas:
+Not a sermon. Three lines:
 
-1. Por qué este cambio conviene spec (una razón).
-2. Dos o tres preguntas que cambian el resultado (no un cuestionario).
-3. Cómo seguir: “respondo y especificamos”, “especificá e implementá”,
-   “hasta validar”, o “de una, sin spec”.
+1. Why this change benefits from a spec (one reason).
+2. Two or three questions that change the outcome (not a questionnaire).
+3. How to proceed: "I answer and we specify", "specify and implement",
+   "through validate", or "just go, no spec".
 
-Usar el AskQuestion tool si está; si no, preguntar y **parar**.
-Una ronda por defecto; segunda solo si la respuesta abre un hueco material.
-Máximo tres preguntas por ronda.
+Use the AskQuestion tool if available; otherwise ask and **stop**.
+One round by default; a second only if the answer opens a material gap.
+Maximum three questions per round.
 
-## 4. Cadena
+## 4. Chain
 
-| Dicen | Hacer |
+| They say | Do |
 |---|---|
-| solo el cambio, y es interesante | preguntas → specify → parar (humano) |
-| “especificá e implementá” / “encadená” | specify + implement en esta sesión |
-| “hasta validar” / “el flujo completo” | los tres pasos |
-| “de una” / “sin spec” | implementar, no crear stub |
+| only the change, and it is interesting | questions → specify → stop (human) |
+| "specify and implement" / "chain" | specify + implement in this session |
+| "through validate" / "full flow" | all three steps |
+| "just go" / "no spec" | implement, do not create a stub |
 
-Encadenar no saltea escribir la spec: la escribe y sigue.
-El humano puede cortar entre pasos.
+Chaining does not skip writing the spec: write it and continue.
+The human can cut between steps.
 
-## 5. Después del triage
+## 5. After triage
 
 - Specify → [specify.md](specify.md)
-- Sin spec → implementar con las reglas de `AGENTS.md` (C4, no inventar producto)
-- Docs crudos / destilar / decidir / estado → [docs.md](docs.md)
+- No spec → implement following `AGENTS.md` rules (do not invent product)
+- Raw docs / distill / decide / status → [docs.md](docs.md)

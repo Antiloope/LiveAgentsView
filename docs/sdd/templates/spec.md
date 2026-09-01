@@ -1,52 +1,52 @@
 ---
-titulo: 
+title: 
 slug: 
-estado: borrador
-creada: YYYY-MM-DD
-actualizada: YYYY-MM-DD
-siguiente: specify | implement | validate | ninguna
-cadena: specify | specify+implement | specify+implement+validate | ninguna
+status: draft
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+next: specify | implement | validate | none
+chain: specify | specify+implement | specify+implement+validate | none
 ---
 
-# Spec: <titulo>
+# Spec: <title>
 
-## Intento
+## Intent
 
-Qué tiene que quedar verdadero cuando esto termine. Una o dos frases.
+What must be true when this is done. One or two sentences.
 
-## Fuera de alcance
+## Out of scope
 
-Qué no entra. Explícito.
+What does not belong. Explicit.
 
-## Ya decidido
+## Already decided
 
-Citas a `docs/03-decisions.md`, alcance, C4, visión.
-Si el pedido inventa producto, no sigue: va a `docs/05-ideas-to-discuss.md` o se pregunta.
+Citations to `docs/03-decisions.md`, scope, vision.
+If the request invents product, stop: it goes to `docs/05-ideas-to-discuss.md` or ask.
 
-## Preguntas abiertas
-
-- [ ] …
-
-Vacío cuando la spec está `lista`.
-
-## Aceptación
-
-Lista concreta, verificable. El validador marca cada ítem.
+## Open questions
 
 - [ ] …
 
-## Cómo
+Empty when the spec is `ready`.
 
-Notas de implementación: archivos, módulos, C4, migraciones. Las llena quien implementa.
+## Acceptance
 
-## Validación
+Concrete, verifiable list. The validator checks each item.
 
-Las llena quien valida. Huecos, atajos, lo que divergió y si la spec se actualizó.
+- [ ] …
+
+## How
+
+Implementation notes: files, modules. Filled in by whoever implements.
+
+## Validation
+
+Filled in by whoever validates. Gaps, shortcuts, what diverged, and whether the spec was updated.
 
 ## Handoff
 
 ```
 Spec: docs/sdd/specs/<slug>.md
-Estado: <estado>
-Siguiente: <specify|implement|validate|ninguna>
+Status: <status>
+Next: <specify|implement|validate|none>
 ```

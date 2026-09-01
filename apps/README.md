@@ -1,19 +1,17 @@
 # apps/
 
-Deployables del proyecto. Cada carpeta es una aplicación o servicio que se construye,
-corre y despliega por separado.
+Project deployables. Each folder is an application or service that is built,
+run, and deployed separately.
 
-No hay `packages/` compartidos: lo común vive en `db/`, `scripts/`, `docs/` y
+There is no shared `packages/`: common pieces live in `scripts/`, `docs/`, and
 `compose.yaml`.
 
-## Cómo agregar una app
+## How to add an app
 
-1. Actualizar el C4 en `docs/arquitectura/workspace.dsl`.
-2. Crear `apps/<nombre>/` con su README (reglas de estructura interna).
-3. Agregar el servicio a `compose.yaml` y `compose.dev.yaml` si corre en local.
-4. Extender `.github/detectar-cambios.sh` y `scripts/test.sh` para la nueva app.
-5. Si el cambio es interesante, abrir una spec en `docs/sdd/specs/`.
+1. Create `apps/<name>/` with its README (internal structure rules).
+2. Add the service to `compose.yaml` and `compose.dev.yaml` if it runs locally.
+3. If the change is meaningful, open a spec in `docs/sdd/specs/`.
 
-## Estado
+## Status
 
-Vacío al 2026-09-01. La primera app depende de definir visión y alcance.
+Empty as of 2026-09-01. The first app depends on defining vision and scope.

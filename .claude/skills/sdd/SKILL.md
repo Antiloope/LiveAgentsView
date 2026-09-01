@@ -3,65 +3,63 @@ name: sdd
 description: >
   Spec-driven workflow for this repo (SDD). Triages whether a change
   needs a spec, writes and keeps specs current in docs/sdd/specs/, and runs
-  specify → implement → validate with optional chaining so small or rápido
-  work is not blocked. Also destills the docs inbox, decisions, open
+  specify → implement → validate with optional chaining so small or quick
+  work is not blocked. Also distills the docs inbox, decisions, open
   questions, and status. Use when the user proposes a feature, refactor,
-  new module, C4 change, or interesting repo change; mentions spec, SDD,
-  inbox, destilar, decisiones, preguntas abiertas, or docs/00–06; an
+  new module, or interesting repo change; mentions spec, SDD,
+  inbox, distill, decisions, open questions, or docs/00–06; an
   open spec exists for the work; or they ask to specify, implement, or
-  validate. Skip recommending a spec for tiny/chico/rápido work unless a
+  validate. Skip recommending a spec for tiny/small/quick work unless a
   spec is already in play — then it must stay updated through the end.
 ---
 
 # SDD
 
-Specs de implementación en `docs/sdd/`. No son definición de producto.
-Antes de actuar: listá `docs/sdd/specs/*.md` (salvo el README) y leé
-[docs/sdd/README.md](../../../docs/sdd/README.md) si hay alguna abierta
-que matchee el pedido. Si hay spec en juego, cargala y seguí desde `siguiente`.
+Implementation specs in `docs/sdd/`. They are not product definition.
+Before acting: list `docs/sdd/specs/*.md` (except the README) and read
+[docs/sdd/README.md](../../../docs/sdd/README.md) if any open one matches the request.
+If a spec is in play, load it and continue from `next`.
 
 ## Routing
 
-| Pedido | Qué cargar |
+| Request | What to load |
 |---|---|
-| Feature, refactor, módulo, “cambio interesante”, sin comando | [reference/triage.md](reference/triage.md) |
-| `specify` / “armemos la spec” / “definamos esto” | [reference/specify.md](reference/specify.md) |
-| `implement` / “desarrollá la spec” / “implementá X.md” | [reference/implement.md](reference/implement.md) |
-| `validate` / “validá la spec” / “revisá contra la spec” | [reference/validate.md](reference/validate.md) |
-| `inbox` / `destilar` / `decidir` / `estado` | [reference/docs.md](reference/docs.md) |
-| `/sdd` o `$sdd` sin argumentos | Menú corto de la tabla; no arrancar un paso |
+| Feature, refactor, module, "interesting change", no command | [reference/triage.md](reference/triage.md) |
+| `specify` / "let's write the spec" / "define this" | [reference/specify.md](reference/specify.md) |
+| `implement` / "build the spec" / "implement X.md" | [reference/implement.md](reference/implement.md) |
+| `validate` / "validate the spec" / "review against the spec" | [reference/validate.md](reference/validate.md) |
+| `inbox` / `distill` / `decide` / `status` | [reference/docs.md](reference/docs.md) |
+| `/sdd` or `$sdd` with no arguments | Short menu from the table; do not start a step |
 
-Cadena dicha por el usuario (`especificá e implementá`, `hasta validar`, `encadená`):
-hacer esos pasos en esta sesión, actualizando la spec entre medio.
-Sin cadena, un paso y handoff. El humano está en el medio a propósito.
+User-requested chain (`specify and implement`, `through validate`, `chain`):
+run those steps in this session, updating the spec in between.
+Without a chain, one step and handoff. The human is in the middle on purpose.
 
-## No bloquea, no deja a medias
+## Does not block, does not leave things half-done
 
-- “rápido”, “chico”, “sin spec”, “andá de una”: implementar sin spec.
-  Una frase ofreciendo spec alcanza; si dicen que no, no insistir.
-- Spec **ya abierta** para este trabajo: no se saltea. Se actualiza en el
-  mismo turno hasta `validada` o `abandonada` (con motivo).
-- Borrador abandonado a mitad: marcar `abandonada` o terminarlo. Nunca
-  dejar `borrador`/`en-curso` huérfano.
+- "quick", "small", "no spec", "just go": implement without a spec.
+  One sentence offering a spec is enough; if they say no, do not insist.
+- Spec **already open** for this work: do not skip it. Update it in the
+  same turn until `validated` or `abandoned` (with rationale).
+- Abandoned draft mid-way: mark `abandoned` or finish it. Never leave
+  `draft`/`in-progress` orphaned.
 
-## Definición vs spec
+## Definition vs spec
 
-Escribir código o una spec **no cierra una definición**. Si el pedido
-inventa producto, para: `docs/05-ideas-to-discuss.md` o preguntarle a un maintainer.
-Citas a lo decidido; no ampliar alcance por iniciativa propia.
-
-C4 primero si aparece un módulo, servicio o dependencia nueva.
+Writing code or a spec **does not close a definition**. If the request
+invents product, stop: `docs/05-ideas-to-discuss.md` or ask a maintainer.
+Cite what is decided; do not expand scope on your own.
 
 ## Handoff
 
-Al cerrar un paso (o la cadena), pegá esto:
+When closing a step (or the chain), paste this:
 
 ```
 Spec: docs/sdd/specs/<slug>.md
-Estado: <estado>
-Siguiente: <specify|implement|validate|ninguna>
+Status: <status>
+Next: <specify|implement|validate|none>
 ```
 
-Estados: `borrador` · `lista` · `en-curso` · `hecha` · `validada` · `abandonada`.
-Plantilla: [docs/sdd/templates/spec.md](../../../docs/sdd/templates/spec.md).
-Índice: tabla en `docs/sdd/README.md` — actualizarla al crear, cambiar estado o cerrar.
+Statuses: `draft` · `ready` · `in-progress` · `done` · `validated` · `abandoned`.
+Template: [docs/sdd/templates/spec.md](../../../docs/sdd/templates/spec.md).
+Index: table in `docs/sdd/README.md` — update it when creating, changing status, or closing.

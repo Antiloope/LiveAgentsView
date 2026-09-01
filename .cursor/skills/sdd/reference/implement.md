@@ -1,26 +1,25 @@
 # Implement
 
-Implementar **esa** spec. No reabrir el intento ni sumar alcance.
+Implement **that** spec. Do not reopen the intent or add scope.
 
-## Antes
+## Before
 
-1. Leer la spec completa. Si `estado` es `borrador` o hay preguntas abiertas sin cadena:
-   no codear; volver a [specify.md](specify.md) o preguntar lo mínimo que bloquea.
-2. Si `estado` es `abandonada` o `validada`: parar y decirlo.
-3. Pasar `estado` a `en-curso`, `actualizada` a hoy, tabla en `docs/sdd/README.md`.
+1. Read the full spec. If `status` is `draft` or open questions remain without a chain:
+   do not code; go back to [specify.md](specify.md) or ask the minimum that blocks.
+2. If `status` is `abandoned` or `validated`: stop and say so.
+3. Set `status` to `in-progress`, `updated` to today, table in `docs/sdd/README.md`.
 
-## Durante
+## During
 
-- `AGENTS.md`: C4 primero, scripts no comandos sueltos, migraciones nuevas no editadas,
-  no inventar producto.
-- Si el código obliga a cambiar el enfoque: actualizar la spec **en el mismo turno**
-  (Cómo, Aceptación, fuera de alcance). La spec no puede quedar atrás del código.
-- Si aparece una decisión de producto: parar. No resolverla en la spec ni en el código.
+- `AGENTS.md`: scripts not loose commands once they exist, do not invent product.
+- If the code forces a different approach: update the spec **in the same turn**
+  (How, Acceptance, out of scope). The spec cannot lag behind the code.
+- If a product decision appears: stop. Do not resolve it in the spec or code.
 
-## Después
+## After
 
-1. Completar **Cómo** con lo que realmente se tocó.
-2. Aceptación: dejar los ítems para el validador; no auto-marcarlos todos.
-3. `estado: hecha`, `siguiente: validate`.
-4. Actualizar la tabla.
-5. Handoff. Sin cadena a validate: parar. Con cadena: [validate.md](validate.md).
+1. Complete **How** with what was actually touched.
+2. Acceptance: leave items for the validator; do not auto-check them all.
+3. `status: done`, `next: validate`.
+4. Update the table.
+5. Handoff. Without a chain to validate: stop. With chain: [validate.md](validate.md).

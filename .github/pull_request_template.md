@@ -1,26 +1,25 @@
-## Qué cambia
+## What changes
 
-<!-- Descripción breve del cambio -->
+<!-- Brief description of the change -->
 
-## Spec SDD (si aplica)
+## SDD spec (if applicable)
 
-<!-- Link a docs/sdd/specs/<slug>.md o "N/A — cambio chico" -->
+<!-- Link to docs/sdd/specs/<slug>.md or "N/A — small change" -->
 
-## Tipo de cambio
+## Change type
 
 - [ ] Bug fix
 - [ ] Feature
 - [ ] Docs
 - [ ] Refactor
-- [ ] CI / tooling
+- [ ] Tooling
 
 ## Checklist
 
-- [ ] Leí [CONTRIBUTING.md](../CONTRIBUTING.md) y [AGENTS.md](../AGENTS.md)
-- [ ] Si toca producto, está en docs de definición o en ideas-to-discuss (no inventado en el PR)
-- [ ] `./scripts/test.sh` pasa en local (o equivalente)
-- [ ] Actualicé `docs/06-status.md` si cambió un hecho del proyecto
+- [ ] Read [CONTRIBUTING.md](../CONTRIBUTING.md) and [AGENTS.md](../AGENTS.md)
+- [ ] If it touches product, it is in definition docs or ideas-to-discuss (not invented in the PR)
+- [ ] Updated `docs/06-status.md` if a project fact changed
 
 ## Test plan
 
-<!-- Cómo verificaste el cambio -->
+<!-- How you verified the change -->

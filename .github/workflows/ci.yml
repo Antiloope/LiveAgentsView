@@ -1,0 +1,102 @@
+# Verificación en cada pull request y en cada push a main.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  cambios:
+    name: Qué cambió
+    runs-on: ubuntu-latest
+    outputs:
+      migraciones: ${{ steps.detectar.outputs.migraciones }}
+      arquitectura: ${{ steps.detectar.outputs.arquitectura }}
+      repo: ${{ steps.detectar.outputs.repo }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detectar
+        run: |
+          chmod +x .github/detectar-cambios.sh
+          .github/detectar-cambios.sh \
+            "${{ github.event_name == 'pull_request'
+                 && github.event.pull_request.base.sha
+                 || github.event.before }}"
+
+  repo:
+    name: Repo
+    needs: cambios
+    if: needs.cambios.outputs.repo == 'si' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chequeos generales
+        run: ./scripts/test.sh
+
+  migraciones:
+    name: Migraciones
+    needs: cambios
+    if: needs.cambios.outputs.migraciones == 'si'
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aplicar sobre una base limpia
+        if: hashFiles('db/migrations/*.sql') != ''
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL='postgres://ci:ci@localhost:5432/ci?sslmode=disable' \
+            -e MIGRATIONS_DIR=/db/migrations \
+            -e APPLIED_BY='ci' \
+            -v "$PWD/db:/db:ro" \
+            postgres:17-alpine /bin/sh /db/run.sh
+
+      - name: Volver a correrlas no cambia nada
+        if: hashFiles('db/migrations/*.sql') != ''
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL='postgres://ci:ci@localhost:5432/ci?sslmode=disable' \
+            -e MIGRATIONS_DIR=/db/migrations \
+            -v "$PWD/db:/db:ro" \
+            postgres:17-alpine /bin/sh /db/run.sh --status
+
+      - name: Sin migraciones todavía
+        if: hashFiles('db/migrations/*.sql') == ''
+        run: echo "Sin archivos .sql en db/migrations — se saltea."
+
+  arquitectura:
+    name: C4
+    needs: cambios
+    if: needs.cambios.outputs.arquitectura == 'si'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar el modelo
+        run: |
+          docker run --rm -v "$PWD/docs/arquitectura:/work" \
+            structurizr/structurizr validate -workspace /work/workspace.dsl

@@ -1,0 +1,37 @@
+name: Feature request
+description: Proponer una mejora o funcionalidad nueva
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Las propuestas de producto no acordadas van a `docs/05-ideas-to-discuss.md`.
+        Este issue sirve para discutir antes de abrir un PR.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o necesidad
+      description: Qué problema resuelve o qué valor agrega
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: Cómo lo resolverías (a alto nivel)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: ¿Toca definición de producto?
+      options:
+        - No estoy seguro
+        - Sí — necesita decisión de maintainer
+        - No — es implementación de algo ya decidido
+    validations:
+      required: true

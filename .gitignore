@@ -1,0 +1,41 @@
+# OS
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+
+# Config local de herramientas (no compartir entre máquinas)
+.claude/settings.local.json
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+next-env.d.ts
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Go
+bin/
+tmp/
+*.test
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Caché de Structurizr (el modelo es workspace.dsl, esto es lo que genera al verlo)
+docs/arquitectura/.structurizr/
+
+# Salidas de herramientas (se regeneran solas)
+*.tsbuildinfo
+docs/arquitectura/workspace.json

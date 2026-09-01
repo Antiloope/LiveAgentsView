@@ -21,7 +21,7 @@ jobs:
       arquitectura: ${{ steps.detectar.outputs.arquitectura }}
       repo: ${{ steps.detectar.outputs.repo }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -39,7 +39,7 @@ jobs:
     if: needs.cambios.outputs.repo == 'si' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Chequeos generales
         run: ./scripts/test.sh
@@ -63,7 +63,7 @@ jobs:
           --health-timeout 3s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Aplicar sobre una base limpia
         if: hashFiles('db/migrations/*.sql') != ''
@@ -94,7 +94,7 @@ jobs:
     if: needs.cambios.outputs.arquitectura == 'si'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validar el modelo
         run: |

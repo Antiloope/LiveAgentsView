@@ -1,4 +1,7 @@
-package daemon
+// Package sse fans out arbitrary JSON-able values to every subscribed HTTP
+// client over Server-Sent Events. Used both for the dashboard's global
+// session stream and for each piloted session's live transcript stream.
+package sse
 
 import (
 	"encoding/json"
@@ -6,18 +9,16 @@ import (
 	"sync"
 )
 
-// sseHub fans out session updates to every connected dashboard over
-// Server-Sent Events, so the UI never needs a manual refresh.
-type sseHub struct {
+type Hub struct {
 	mu      sync.Mutex
 	clients map[chan []byte]struct{}
 }
 
-func newSSEHub() *sseHub {
-	return &sseHub{clients: make(map[chan []byte]struct{})}
+func NewHub() *Hub {
+	return &Hub{clients: make(map[chan []byte]struct{})}
 }
 
-func (h *sseHub) subscribe() chan []byte {
+func (h *Hub) subscribe() chan []byte {
 	ch := make(chan []byte, 16)
 	h.mu.Lock()
 	h.clients[ch] = struct{}{}
@@ -25,14 +26,14 @@ func (h *sseHub) subscribe() chan []byte {
 	return ch
 }
 
-func (h *sseHub) unsubscribe(ch chan []byte) {
+func (h *Hub) unsubscribe(ch chan []byte) {
 	h.mu.Lock()
 	delete(h.clients, ch)
 	h.mu.Unlock()
 	close(ch)
 }
 
-func (h *sseHub) broadcast(v any) {
+func (h *Hub) Broadcast(v any) {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return
@@ -49,7 +50,7 @@ func (h *sseHub) broadcast(v any) {
 	}
 }
 
-func (h *sseHub) handle(w http.ResponseWriter, r *http.Request) {
+func (h *Hub) Handle(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)

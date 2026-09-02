@@ -20,7 +20,13 @@ via the same Docker build and registers it as a launchd/systemd user service
 - `internal/ingest` — one parser per provider, raw hook payload → `model.Signal`.
 - `internal/classifier` — end-of-turn classifier (rules-based v1, pluggable).
 - `internal/store` — SQLite persistence.
-- `internal/daemon` — HTTP routes, SSE hub, the `/api/open-terminal` endpoint.
+- `internal/daemon` — HTTP routes, SSE hub, the `/api/open-terminal` and
+  piloted-session endpoints.
+- `internal/pilot` — launches Claude Code and Cursor as child processes for
+  piloted sessions, streams their transcript live, and routes messages,
+  permission decisions, interrupts and cancellation back to them.
+- `internal/sse` — the Server-Sent Events hub, shared by the dashboard's
+  global session stream and each piloted session's transcript stream.
 - `internal/installer` — `lav init`: non-destructive hook merge per provider.
 - `internal/service` — `lav service install`: registers the running binary as
   a launchd (macOS) / systemd `--user` (Linux) service.
@@ -31,10 +37,11 @@ via the same Docker build and registers it as a launchd/systemd user service
 
 ## Why hooks call an HTTP endpoint instead of the daemon spawning anything
 
-Sessions are launched natively by the user, not by LiveAgentsView. Ingesting a
-hook event only ever receives a POST and writes to SQLite — it never touches
-the host filesystem or spawns a process. `/api/open-terminal` is the one
-exception: it exists specifically to spawn a terminal on the host, which is
-why it only works when the daemon runs natively
+Adopted sessions are launched natively by the user, not by LiveAgentsView.
+Ingesting a hook event only ever receives a POST and writes to SQLite — it
+never touches the host filesystem or spawns a process for those. Piloted
+sessions are the exception: internal/pilot spawns `claude`/`agent` directly,
+needing the host's real filesystem, git checkouts and login state — like
+`/api/open-terminal`, that only works when the daemon runs natively
 (`scripts/lav-service-install.sh`), not inside `scripts/dev-up.sh`'s
 container.

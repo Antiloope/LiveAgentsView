@@ -143,6 +143,27 @@ VALUES (?, ?, ?, ?, ?, ?)`,
 	return nil
 }
 
+// ListEvents returns a session's events oldest first — the shape a
+// transcript replays in, unlike ListSessions's most-recently-updated order.
+func (s *Store) ListEvents(ctx context.Context, sessionID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT raw FROM events WHERE session_id = ? ORDER BY received_at ASC, id ASC`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("list events for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, fmt.Errorf("scan event for session %s: %w", sessionID, err)
+		}
+		out = append(out, raw)
+	}
+	return out, rows.Err()
+}
+
 // rowScanner is satisfied by both *sql.Row and *sql.Rows.
 type rowScanner interface {
 	Scan(dest ...any) error

@@ -166,6 +166,25 @@ table live in the first spec (`docs/sdd/specs/`) as implementation detail the ad
 are built against, not product definition.
 **Closes:** Q-08.
 
+## 2026-09-02 — Cursor piloted sessions auto-approve, no live permission gate
+
+**Who:** Rodrigo
+**Decision:** Cursor's piloted adapter launches every session with `--force`/`--yolo`
+(auto-approve every tool call) instead of offering the approve/deny control piloted mode
+gives Claude Code. Each user message is a new one-shot `agent -p --output-format
+stream-json` invocation chained via `--resume`/`--continue`, not a persistent stdin
+channel.
+**Rationale:** `agent --help` has no `--input-format` flag at all (Claude Code has one) and
+`--output-format stream-json` only works with `--print`, a single request/response
+invocation, not a session you keep talking to. Confirmed live: running `agent -p
+--output-format stream-json --trust` (no `--force`) against a shell tool call did not pause
+for an approval — it silently rejected the command and the agent worked around it. There is
+no channel for an external supervisor to approve a specific pending tool call. The
+alternative, restricting Cursor piloted sessions to `--mode plan`/`ask` (read-only), cannot
+complete tasks, defeating the point of piloting it — auto-approving is the accepted
+trade-off for Cursor specifically, the same posture adopted mode already takes by
+delegating permissions to the underlying agent.
+
 ## 2026-09-01 — Cursor's adapter is built alongside Claude Code and Codex from the start
 
 **Who:** Rodrigo

@@ -83,7 +83,7 @@ func cmdServe() {
 	}
 
 	srv := daemon.New(st, classifier.NewRules(), webFS)
-	addr := ":" + port()
+	addr := "127.0.0.1:" + port()
 	log.Printf("lav daemon listening on %s (data: %s)", addr, dir)
 	if err := http.ListenAndServe(addr, srv); err != nil {
 		log.Fatalf("serve: %v", err)

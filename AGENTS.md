@@ -28,7 +28,10 @@ Details in [docs/sdd/README.md](docs/sdd/README.md).
 ## Code rules
 
 **Nothing is run by hand.** Everything goes through `scripts/` once they exist.
-The only thing installed on the machine is Docker. New commands become scripts.
+The only thing installed on the machine to develop and test LiveAgentsView itself is
+Docker. New commands become scripts. This does not apply to the shipped binary, which
+runs on the host by design — see the
+[2026-09-01 Docker decision](docs/03-decisions.md).
 
 **Writing code does not close a definition.** A human maintainer does that, and only
 then does it land in the decision log. Something being built does not make it decided.

@@ -52,25 +52,50 @@ func EnsureDir(lavHome string) error {
 	return os.MkdirAll(pilotDir(lavHome), 0o755)
 }
 
-// ClientMsg is sent from the daemon to a pilot-runner over the control
-// socket.
+// ClientMsg is sent over a pilot-runner's control socket by whichever local
+// process is talking to it on a given connection: the daemon (attach, then
+// stdin/kill/permission_response on that same connection), or a session's
+// pilot-mcp helper (internal/pilotmcp) dialing fresh for one
+// permission_request and reading back the matching ServerMsg.
 type ClientMsg struct {
-	// Op is "attach" (subscribe, replaying everything after Since),
-	// "stdin" (relay Data to the child process's stdin), or "kill" (send
-	// SIGKILL to the child — Cancel/Interrupt-via-kill for Cursor).
-	Op    string `json:"op"`
-	Since int64  `json:"since,omitempty"`
-	Data  string `json:"data,omitempty"`
+	// Op is "attach" (subscribe, replaying everything after Since), "stdin"
+	// (relay Data to the child process's stdin), "kill" (send SIGKILL to the
+	// child — Cancel/Interrupt-via-kill for Cursor), "permission_request"
+	// (pilot-mcp asking whether ToolName may run with Input, RequestID set to
+	// the tool_use_id being asked about), or "permission_response" (the
+	// daemon's decision for a pending RequestID, Approve true/false).
+	Op        string          `json:"op"`
+	Since     int64           `json:"since,omitempty"`
+	Data      string          `json:"data,omitempty"`
+	RequestID string          `json:"request_id,omitempty"`
+	ToolName  string          `json:"tool_name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	Approve   bool            `json:"approve,omitempty"`
 }
 
-// ServerMsg is sent from a pilot-runner to the daemon: either one transcript
-// line (Seq > 0) or a terminal notice that the child process exited.
+// PermissionRequest is what a pilot-runner relays to whichever daemon
+// connection is currently attached when its child process asks (via the
+// pilot-mcp "approval_prompt" tool) whether a tool call may proceed.
+type PermissionRequest struct {
+	RequestID string          `json:"request_id"`
+	ToolName  string          `json:"tool_name"`
+	Input     json.RawMessage `json:"input"`
+}
+
+// ServerMsg is sent from a pilot-runner over the control socket: to the
+// daemon's attached connection, one transcript line (Seq > 0), a terminal
+// exit notice, or a permission request to relay to the dashboard; to a
+// pilot-mcp connection, the one decision (RequestID/Approve) it dialed in to
+// ask about.
 type ServerMsg struct {
-	Seq    int64  `json:"seq,omitempty"`
-	Line   string `json:"line,omitempty"`
-	Exited bool   `json:"exited,omitempty"`
-	Code   int    `json:"code,omitempty"`
-	Err    string `json:"err,omitempty"`
+	Seq        int64              `json:"seq,omitempty"`
+	Line       string             `json:"line,omitempty"`
+	Exited     bool               `json:"exited,omitempty"`
+	Code       int                `json:"code,omitempty"`
+	Err        string             `json:"err,omitempty"`
+	Permission *PermissionRequest `json:"permission,omitempty"`
+	RequestID  string             `json:"request_id,omitempty"`
+	Approve    bool               `json:"approve,omitempty"`
 }
 
 // maxLineBytes generously covers a single stdout line or wire frame — the

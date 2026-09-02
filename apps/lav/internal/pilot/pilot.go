@@ -108,6 +108,7 @@ type pilotSession struct {
 	bootstrapCmd  *exec.Cmd      // set only for cursor's first, not-yet-detached turn — see launchCursorBootstrap
 	running       bool
 	stoppedByUser bool // set before killing so exit handling reports IDLE, not FAILED
+	interrupted   bool // set before sending an interrupt request so the result line reports DONE, not FAILED
 	lastText      string
 	pending       map[string]bool // request_id -> true while awaiting a permission decision
 }
@@ -575,6 +576,9 @@ func (m *Manager) readFromRunner(ps *pilotSession, conn net.Conn) {
 			case model.ProviderCursor:
 				m.handleCursorLine(ctx, ps, []byte(msg.Line))
 			}
+		}
+		if msg.Permission != nil {
+			m.handleClaudePermissionRequest(ctx, ps, msg.Permission)
 		}
 		if msg.Seq > 0 {
 			_ = pilotwire.WriteOffset(m.lavHome, ps.id, msg.Seq)

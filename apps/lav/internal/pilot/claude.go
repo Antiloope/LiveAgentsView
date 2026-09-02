@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotwire"
 )
 
 // launchClaude starts a Claude Code piloted session by spawning its
@@ -60,15 +61,22 @@ func (m *Manager) sendClaudeMessage(ps *pilotSession, text string) error {
 	return err
 }
 
+// approveClaudePermission answers a pending approval_prompt call — relayed by
+// pilot-runner from its pilot-mcp helper, see handleClaudePermissionRequest —
+// by sending the decision back over the same control socket the runner
+// already dials this session's stdin/kill through. Not written to the
+// child's own stdin: the child never asked there in the first place (see
+// package doc), the runner's blocked pilot-mcp connection is what's actually
+// waiting for this.
 func (m *Manager) approveClaudePermission(ps *pilotSession, requestID string, approve bool) error {
 	ps.mu.Lock()
-	running, stdin := ps.running, ps.stdin
+	running, conn := ps.running, ps.conn
 	known := ps.pending[requestID]
 	if known {
 		delete(ps.pending, requestID)
 	}
 	ps.mu.Unlock()
-	if !running || stdin == nil {
+	if !running || conn == nil {
 		return ErrNotRunning
 	}
 	if !known {
@@ -76,19 +84,35 @@ func (m *Manager) approveClaudePermission(ps *pilotSession, requestID string, ap
 	}
 	approved := approve
 	m.emit(context.Background(), ps, Event{Kind: EventPermissionResolved, RequestID: requestID, Approved: &approved})
-	_, err := stdin.Write(claudePermissionResponse(requestID, approve))
-	return err
+	return pilotwire.Encode(conn, pilotwire.ClientMsg{Op: "permission_response", RequestID: requestID, Approve: approve})
+}
+
+// handleClaudePermissionRequest turns one permission ask relayed by
+// pilot-runner (originally an approval_prompt tools/call it received from
+// its pilot-mcp helper — see internal/pilotrunner and internal/pilotmcp)
+// into the same EventPermissionRequest/StateBlocked the dashboard already
+// renders an Approve/Deny card for. approveClaudePermission answers it.
+func (m *Manager) handleClaudePermissionRequest(ctx context.Context, ps *pilotSession, req *pilotwire.PermissionRequest) {
+	ps.mu.Lock()
+	ps.pending[req.RequestID] = true
+	ps.mu.Unlock()
+	m.emit(ctx, ps, Event{Kind: EventPermissionRequest, ToolName: req.ToolName, ToolInput: req.Input, RequestID: req.RequestID})
+	m.upsert(ctx, ps, model.StateBlocked, "")
 }
 
 // interruptClaude asks the live process to stop its current turn without
-// exiting. The exact control-protocol shape is Claude Code's documented
-// stream-json control channel, not something confirmed against a real
-// authenticated run in this environment (the sandbox this was built in
-// cannot log in to the CLI it is driving) — if a real run shows a different
-// shape, buildInterruptRequest is the one place to fix.
+// exiting. Live-confirmed shape: the CLI acknowledges the control_request
+// with control_response{subtype:"success"} and the process survives, but the
+// turn's own "result" line comes back as is_error:true,
+// subtype:"error_during_execution" — indistinguishable on its own from a
+// genuine failure. interrupted marks that the next such result line was
+// asked for, not a crash — see handleClaudeLine's "result" case.
 func (m *Manager) interruptClaude(ps *pilotSession) error {
 	ps.mu.Lock()
 	running, stdin := ps.running, ps.stdin
+	if running {
+		ps.interrupted = true
+	}
 	ps.mu.Unlock()
 	if !running || stdin == nil {
 		return ErrNotRunning
@@ -111,27 +135,6 @@ func claudeUserMessage(text string) []byte {
 	return append(b, '\n')
 }
 
-// claudePermissionResponse answers a control_request{subtype:"can_use_tool"}
-// the CLI sent asking whether a tool call may proceed. Shape follows Claude
-// Code's documented Agent SDK control protocol; not live-confirmed here for
-// the same auth reason as buildInterruptRequest.
-func claudePermissionResponse(requestID string, approve bool) []byte {
-	body := map[string]any{"behavior": "deny", "message": "denied from LiveAgentsView"}
-	if approve {
-		body = map[string]any{"behavior": "allow"}
-	}
-	msg := map[string]any{
-		"type": "control_response",
-		"response": map[string]any{
-			"subtype":    "can_use_tool",
-			"request_id": requestID,
-			"response":   body,
-		},
-	}
-	b, _ := json.Marshal(msg)
-	return append(b, '\n')
-}
-
 func buildInterruptRequest() []byte {
 	msg := map[string]any{
 		"type":       "control_request",
@@ -140,18 +143,6 @@ func buildInterruptRequest() []byte {
 	}
 	b, _ := json.Marshal(msg)
 	return append(b, '\n')
-}
-
-// claudeControlRequest is the CLI-initiated shape asking the driver for a
-// permission decision.
-type claudeControlRequest struct {
-	Type      string `json:"type"`
-	RequestID string `json:"request_id"`
-	Request   struct {
-		Subtype  string          `json:"subtype"`
-		ToolName string          `json:"tool_name"`
-		Input    json.RawMessage `json:"input"`
-	} `json:"request"`
 }
 
 type claudeContentBlock struct {
@@ -185,10 +176,10 @@ type claudeSystemLine struct {
 // handleClaudeLine turns one raw stream-json line from Claude Code's stdout
 // (relayed live by pilot-runner, or replayed from its durable transcript on
 // reconnect) into transcript events and session state transitions.
-// Unrecognized top-level types are still shown, as a raw passthrough event,
-// rather than silently dropped — this driver's model of the protocol is
-// best-effort (see the interrupt/permission functions above), so anything
-// it doesn't specifically know about should still reach the dashboard.
+// Permission requests never arrive on this channel at all — see
+// handleClaudePermissionRequest. Unrecognized top-level types (including the
+// control_response that acknowledges an interrupt) are still shown, as a raw
+// passthrough event, rather than silently dropped.
 func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line []byte) {
 	if len(line) == 0 {
 		return
@@ -227,20 +218,6 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 			}
 		}
 
-	case "control_request":
-		var cr claudeControlRequest
-		if err := json.Unmarshal(line, &cr); err != nil {
-			return
-		}
-		if cr.Request.Subtype != "can_use_tool" {
-			return
-		}
-		ps.mu.Lock()
-		ps.pending[cr.RequestID] = true
-		ps.mu.Unlock()
-		m.emit(ctx, ps, Event{Kind: EventPermissionRequest, ToolName: cr.Request.ToolName, ToolInput: cr.Request.Input, RequestID: cr.RequestID})
-		m.upsert(ctx, ps, model.StateBlocked, "")
-
 	case "result":
 		var r claudeResultLine
 		if err := json.Unmarshal(line, &r); err != nil {
@@ -248,11 +225,22 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 		}
 		ps.mu.Lock()
 		lastText := ps.lastText
+		interrupted := ps.interrupted
+		ps.interrupted = false
 		ps.mu.Unlock()
 		if r.Result != "" {
 			lastText = r.Result
 		}
 		if r.IsError {
+			if interrupted && r.Subtype == "error_during_execution" {
+				// A requested interrupt, not a crash: the process is still
+				// alive and its stdin still open, so this reads as DONE
+				// (ready for the next message) rather than FAILED (which the
+				// dashboard reads as "process gone, offer Resume").
+				m.emit(ctx, ps, Event{Kind: EventSystem, Text: "turn interrupted"})
+				m.upsert(ctx, ps, model.StateDone, lastText)
+				return
+			}
 			m.upsert(ctx, ps, model.StateFailed, lastText)
 			return
 		}

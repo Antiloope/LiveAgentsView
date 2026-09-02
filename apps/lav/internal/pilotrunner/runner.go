@@ -5,10 +5,13 @@
 // then talks to it only over a Unix domain socket at a path derived from the
 // session id — see internal/pilotwire. The shim itself is intentionally
 // dumb: it owns the real child process, durably logs its stdout to disk,
-// and relays stdin/kill from whichever daemon is currently attached (there
-// may be none, if the daemon is down or between restarts) — all protocol
-// parsing (turning provider stdout lines into transcript events and session
-// state) stays in internal/pilot, the one place that already knew how.
+// relays stdin/kill from whichever daemon is currently attached (there may
+// be none, if the daemon is down or between restarts), and relays each
+// permission decision between the daemon and this session's own pilot-mcp
+// helper (internal/pilotmcp, Claude Code's --permission-prompt-tool target)
+// — all protocol parsing (turning provider stdout lines and permission asks
+// into transcript events and session state) stays in internal/pilot, the one
+// place that already knew how.
 package pilotrunner
 
 import (
@@ -20,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotwire"
 )
@@ -45,6 +49,7 @@ func Run(args []string) error {
 		provider: *provider,
 		cwd:      *cwd,
 		lavHome:  *lavHome,
+		pending:  make(map[string]chan bool),
 	}
 	return r.run(*resume, *prompt)
 }
@@ -64,6 +69,9 @@ type runner struct {
 	stdin   io.WriteCloser // nil for a provider that never receives stdin (cursor)
 
 	child *exec.Cmd // set once Start succeeds, read by the "kill" op handler
+
+	permMu  sync.Mutex
+	pending map[string]chan bool // request_id -> channel awaiting the daemon's decision, for a permission_request currently in flight
 }
 
 func (r *runner) run(resume bool, prompt string) error {
@@ -71,6 +79,16 @@ func (r *runner) run(resume bool, prompt string) error {
 		return fmt.Errorf("create pilot dir: %w", err)
 	}
 	sockPath := pilotwire.SocketPath(r.lavHome, r.id)
+	if conn, err := net.DialTimeout("unix", sockPath, 200*time.Millisecond); err == nil {
+		// A live runner is still listening here — its child process is
+		// still alive and owns the real stdio. Removing and rebinding the
+		// socket out from under it would silently orphan that process
+		// (permanently, since nothing else holds a reference to it). Refuse
+		// instead; the daemon dialing this same path reconnects to the
+		// runner that's actually there.
+		conn.Close()
+		return fmt.Errorf("pilot-runner: a live runner already holds the control socket for session %s, refusing to start a second one", r.id)
+	}
 	os.Remove(sockPath) // clear a stale socket left by a runner that crashed without cleaning up
 
 	ln, err := net.Listen("unix", sockPath)
@@ -134,7 +152,34 @@ func (r *runner) buildCommand(resume bool, prompt string) (*exec.Cmd, io.Reader,
 	var cmd *exec.Cmd
 	switch r.provider {
 	case "claude-code":
-		args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--permission-mode", "default"}
+		exe, err := os.Executable()
+		if err != nil {
+			return nil, nil, fmt.Errorf("resolve own binary path: %w", err)
+		}
+		// Live-confirmed against the real CLI: headless stream-json print
+		// mode never asks for tool permission over its main channel, no
+		// matter the --permission-mode value — the only way it asks at all
+		// is via an MCP tool named by --permission-prompt-tool. "lav" here
+		// registers this same binary, re-invoked as "lav pilot-mcp", as that
+		// tool (see internal/pilotmcp) — it relays each call to whichever
+		// daemon is attached to this session's own control socket.
+		mcpConfig, err := json.Marshal(map[string]any{
+			"mcpServers": map[string]any{
+				"lav": map[string]any{
+					"command": exe,
+					"args":    []string{"pilot-mcp", "--sock", pilotwire.SocketPath(r.lavHome, r.id)},
+				},
+			},
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("build mcp config: %w", err)
+		}
+		args := []string{
+			"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+			"--permission-mode", "default",
+			"--mcp-config", string(mcpConfig),
+			"--permission-prompt-tool", "mcp__lav__approval_prompt",
+		}
 		if resume {
 			args = append(args, "--resume", r.id)
 		} else {
@@ -216,6 +261,10 @@ func (r *runner) handleConn(conn net.Conn) {
 			if r.child != nil && r.child.Process != nil {
 				r.child.Process.Kill()
 			}
+		case "permission_request":
+			r.handlePermissionRequest(conn, msg.RequestID, msg.ToolName, msg.Input)
+		case "permission_response":
+			r.resolvePermission(msg.RequestID, msg.Approve)
 		}
 	}
 
@@ -245,4 +294,68 @@ func (r *runner) handleAttach(conn net.Conn, since int64) {
 		}
 	}
 	r.conn = conn
+}
+
+// handlePermissionRequest relays one pilot-mcp permission ask to whichever
+// daemon connection is (or shortly becomes) attached, then blocks this
+// connection's own goroutine until that daemon answers. The decision is
+// written back on conn, the same connection pilot-mcp is itself blocked
+// reading — see internal/pilotmcp, which dials fresh for exactly this one
+// round trip.
+func (r *runner) handlePermissionRequest(conn net.Conn, requestID, toolName string, input json.RawMessage) {
+	ch := make(chan bool, 1)
+	r.permMu.Lock()
+	r.pending[requestID] = ch
+	r.permMu.Unlock()
+	defer func() {
+		r.permMu.Lock()
+		delete(r.pending, requestID)
+		r.permMu.Unlock()
+	}()
+
+	approve := false
+	// A brief wait, not an immediate fail-closed, absorbs the ordinary gap
+	// of a daemon mid-restart (see dialWithRetry in internal/pilot for the
+	// same allowance on the daemon's own side of a fresh spawn) — but with
+	// truly nobody to ask, deny rather than hang the child's turn forever or
+	// silently allow a tool call nobody actually approved.
+	if daemon := r.waitForDaemon(5 * time.Second); daemon != nil {
+		if err := pilotwire.Encode(daemon, pilotwire.ServerMsg{
+			Permission: &pilotwire.PermissionRequest{RequestID: requestID, ToolName: toolName, Input: input},
+		}); err == nil {
+			approve = <-ch
+		}
+	}
+	pilotwire.Encode(conn, pilotwire.ServerMsg{RequestID: requestID, Approve: approve})
+}
+
+// resolvePermission delivers the daemon's decision for a still-pending
+// permission_request to the pilot-mcp connection blocked waiting on it. A
+// request_id with nothing pending (already resolved, or a stale/duplicate
+// response) is silently ignored.
+func (r *runner) resolvePermission(requestID string, approve bool) {
+	r.permMu.Lock()
+	ch := r.pending[requestID]
+	r.permMu.Unlock()
+	if ch != nil {
+		ch <- approve
+	}
+}
+
+// waitForDaemon polls for a currently-attached daemon connection, absorbing
+// the brief window during a restart where nothing is attached yet.
+func (r *runner) waitForDaemon(timeout time.Duration) net.Conn {
+	deadline := time.Now().Add(timeout)
+	for {
+		r.mu.Lock()
+		conn := r.conn
+		r.mu.Unlock()
+		if conn != nil {
+			return conn
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }

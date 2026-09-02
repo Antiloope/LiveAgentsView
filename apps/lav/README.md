@@ -17,7 +17,7 @@ via the same Docker build and registers it as a launchd/systemd user service
 ## Layout
 
 - `cmd/lav` — CLI entrypoint (`serve`, `uninstall-hooks`, `status`,
-  `service install`, `pilot-runner`).
+  `service install`, `pilot-runner`, `pilot-mcp`).
 - `internal/model` — canonical Provider/State/Session types.
 - `internal/classifier` — end-of-turn classifier (rules-based v1, pluggable).
 - `internal/store` — SQLite persistence.
@@ -32,8 +32,15 @@ via the same Docker build and registers it as a launchd/systemd user service
   piloted session's actual `claude`/`agent` process, durably logs its stdout
   to disk, and exposes a control socket so the daemon can reconnect after a
   restart. Not meant to be invoked by hand.
+- `internal/pilotmcp` — `lav pilot-mcp`: a tiny stdio MCP server Claude Code
+  spawns per session as its `--permission-prompt-tool` target (the only way
+  headless Claude Code asks for tool permission at all — confirmed live, it
+  never sends one over its main stream-json channel). Relays each call to
+  the session's own `pilot-runner` over the same control socket. Not meant
+  to be invoked by hand.
 - `internal/pilotwire` — the control-socket protocol and on-disk file
-  layout shared between `internal/pilot` and `internal/pilotrunner`.
+  layout shared between `internal/pilot`, `internal/pilotrunner` and
+  `internal/pilotmcp`.
 - `internal/sse` — the Server-Sent Events hub, shared by the dashboard's
   global session stream and each piloted session's transcript stream.
 - `internal/hooksuninstall` — `lav uninstall-hooks`: removes exactly what a

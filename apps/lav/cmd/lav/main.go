@@ -2,8 +2,8 @@
 // daemon, `lav status` is a quick CLI-only view without opening the
 // browser, `lav uninstall-hooks` removes hooks a previous version's
 // `lav init` wrote to Claude Code/Codex/Cursor's own config, and
-// `lav pilot-runner` is the internal detached shim a piloted session's
-// process runs under — not meant to be invoked by hand.
+// `lav pilot-runner`/`lav pilot-mcp` are internal helpers a piloted
+// session's process runs under — not meant to be invoked by hand.
 package main
 
 import (
@@ -20,6 +20,7 @@ import (
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/daemon"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/hooksuninstall"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotmcp"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotrunner"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/service"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
@@ -43,6 +44,10 @@ func main() {
 	case "pilot-runner":
 		if err := pilotrunner.Run(os.Args[2:]); err != nil {
 			log.Fatalf("pilot-runner: %v", err)
+		}
+	case "pilot-mcp":
+		if err := pilotmcp.Run(os.Args[2:]); err != nil {
+			log.Fatalf("pilot-mcp: %v", err)
 		}
 	default:
 		usage()

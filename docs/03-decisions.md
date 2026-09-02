@@ -185,6 +185,61 @@ complete tasks, defeating the point of piloting it — auto-approving is the acc
 trade-off for Cursor specifically, the same posture adopted mode already takes by
 delegating permissions to the underlying agent.
 
+## 2026-09-02 — Adopted mode and hooks ingestion are removed entirely; piloted-only posture
+
+**Who:** Rodrigo
+**Decision:** LiveAgentsView drops the adopted/hooks concept completely rather than
+just hiding it from the dashboard. It only ever tracks sessions it launched itself
+(piloted). This removes, not merely hides: `internal/ingest` (the per-provider hook
+parsers), the `/hooks/claude-code` / `/hooks/codex` / `/hooks/cursor` HTTP routes,
+`lav init` and `internal/installer` (the hook-merge machinery), and any already-persisted
+hooks-fidelity session rows in SQLite. Because a previous real `lav init` run already
+wrote LiveAgentsView's hooks into this machine's actual `~/.claude/settings.json`,
+`~/.codex/config.toml` and `~/.cursor/hooks.json`, those real hooks are also uninstalled
+as part of this — not just the code that wrote them — non-destructively, the same way
+`lav init` itself only ever merged rather than overwrote.
+**Rationale:** Superseded the narrower "just stop displaying adopted sessions" version
+of this decision (written earlier the same session) after Rodrigo pointed out that
+without a channel back into an adopted session, keeping the ingestion pipeline and
+`lav init` around is dead weight pretending to do something — "la app solo funciona con
+agentes que puede usar y nada más." Confirmed against `internal/pilot` and
+`daemon/server.go` that no channel to chat with an adopted session is achievable short
+of relaunching it as piloted, so nothing of substance is lost by removing the concept —
+the user already has direct access to the terminal they started an adopted session in
+themselves. This supersedes the two-class framing from the 2026-09-01 "Posture: observer
++ opt-in pilot ('B')" decision — LiveAgentsView is piloted-only going forward — and the
+[adopted-mode-mvp](sdd/specs/adopted-mode-mvp.md) acceptance item that all known
+sessions are listed "regardless of fidelity," intentionally, not as a regression. Also
+resolves the hooks-removal half of [IDEA-08](05-ideas-to-discuss.md) (its
+`lav service uninstall` half is unrelated and stays open). A real consequence worth
+naming: Codex has no driver/piloted adapter (out of scope per
+[piloted-mode-mvp](sdd/specs/piloted-mode-mvp.md)), so until one is built, Codex has no
+representation in the app at all — it drops out of the MVP-providers decision in
+practice, not just in scope for this change.
+
+## 2026-09-02 — No CLI-native background/persistent-session feature fits piloted mode
+
+**Who:** Rodrigo
+**Decision:** Neither Claude Code's `--bg`/`claude agents` background-session feature
+nor Cursor's `agent persist` can be used to keep a piloted driver process alive across a
+`lav` restart. Restart continuity, if built, needs a supervisor LiveAgentsView
+implements itself (detach the process from the daemon's own lifecycle, move its stdio
+off in-memory pipes), not a provider CLI flag.
+**Rationale:** Confirmed live against this machine's real, authenticated `claude` and
+`agent` CLIs: `claude --bg` explicitly refuses to combine with `-p`/`--print` ("the job
+would be unattachable"), and `agent persist` refuses to run without an interactive
+terminal. Both features are built around a human re-attaching to an interactive
+terminal/agent view, not a second machine-readable `stream-json` channel — incompatible
+with the headless bidirectional protocol `internal/pilot/claude.go` and `cursor.go`
+already depend on for structured transcript parsing and live permission approval. This
+corrects the 2026-09-01 inbox note that listed `--bg`/`--tmux` only as available flags,
+without confirming they compose with `-p`/stream-json — they do not. Also closes
+[IDEA-06](05-ideas-to-discuss.md)'s tmux-owned-sessions proposal as a path to restart
+continuity specifically: tmux has the identical structural mismatch (built for
+interactive TTY reconnect, not line-oriented JSON piping between two programs).
+IDEA-06's narrower "let a human attach a real terminal to a piloted session" idea is
+untouched by this and stays open, unrelated to this decision.
+
 ## 2026-09-01 — Cursor's adapter is built alongside Claude Code and Codex from the start
 
 **Who:** Rodrigo

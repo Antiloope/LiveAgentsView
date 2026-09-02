@@ -1,17 +1,15 @@
 # LiveAgentsView daemon. Docker is for developing/running this locally
-# without installing Go or Node. Only adopted-mode hooks work against this
-# containerized daemon (HTTP in, SQLite out, no host access needed); piloted
-# sessions spawn `claude`/`agent` against the host's real filesystem and
-# login state, which needs the daemon running natively — see
-# scripts/lav-service-install.sh.
+# without installing Go or Node. Piloted sessions spawn `claude`/`agent`
+# against the host's real filesystem and login state, which needs the
+# daemon running natively — see scripts/lav-service-install.sh — so this
+# containerized daemon is for developing the dashboard and API against, not
+# for launching real piloted sessions.
 #
-# Development overrides (host config bind mounts, needed for `lav init`) are
-# in compose.dev.yaml.
+# Development overrides are in compose.dev.yaml.
 #
-#   docker compose up --build                        # just run the daemon
-#   docker compose -f compose.yaml -f compose.dev.yaml run --rm lav lav init
+#   docker compose up --build   # just run the daemon
 #
-# Prefer scripts/dev-up.sh and scripts/lav-init.sh over typing these by hand.
+# Prefer scripts/dev-up.sh over typing this by hand.
 
 services:
   lav:

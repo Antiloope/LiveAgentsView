@@ -6,7 +6,6 @@ import {
   cancelPilotedSession,
   fetchPilotEvents,
   interruptPilotedSession,
-  openTerminal,
   resolvePilotPermission,
   resumePilotedSession,
   sendPilotMessage,
@@ -105,7 +104,6 @@ function DrawerContent({
   onClose: () => void
   onSessionUpdate: (session: Session) => void
 }) {
-  const canPilot = session.fidelity === 'driver'
   return (
     <>
       <div className="drawer-header">
@@ -125,41 +123,8 @@ function DrawerContent({
           ✕
         </button>
       </div>
-      {canPilot ? (
-        <PilotChat session={session} onSessionUpdate={onSessionUpdate} />
-      ) : (
-        <SessionDetails session={session} />
-      )}
+      <PilotChat session={session} onSessionUpdate={onSessionUpdate} />
     </>
-  )
-}
-
-function SessionDetails({ session }: { session: Session }) {
-  return (
-    <div className="drawer-details">
-      <p className="hint">
-        {session.fidelity === 'hooks'
-          ? 'This session reports in via hooks — read-only. Jump to its own terminal to interact.'
-          : 'This session is tailed from its transcript — read-only, and waiting/done can look the same. Jump to its own terminal to interact.'}
-      </p>
-      {session.last_message && <div className="bubble assistant">{session.last_message}</div>}
-      <dl className="detail-list">
-        <dt>Repo</dt>
-        <dd>{session.repo || '—'}</dd>
-        <dt>Branch</dt>
-        <dd>{session.branch || '—'}</dd>
-        <dt>Worktree</dt>
-        <dd>{session.worktree || '—'}</dd>
-        <dt>Directory</dt>
-        <dd title={session.cwd}>{session.cwd}</dd>
-        <dt>Fidelity</dt>
-        <dd>{session.fidelity}</dd>
-      </dl>
-      <div className="drawer-actions">
-        <OpenTerminalButton path={session.cwd} />
-        <CopyPathButton path={session.cwd} />
-      </div>
-    </div>
   )
 }
 
@@ -372,47 +337,3 @@ function TranscriptEntry({
   }
 }
 
-// Asks the daemon to spawn a terminal at path. Only works when the daemon
-// runs natively on the host, not via the containerized dev daemon — the
-// request fails there since the container has no terminal to open.
-// CopyPathButton stays as a fallback for that case.
-function OpenTerminalButton({ path }: { path: string }) {
-  const [failed, setFailed] = useState(false)
-
-  const open = useCallback(() => {
-    openTerminal(path)
-      .then(() => setFailed(false))
-      .catch(() => {
-        setFailed(true)
-        setTimeout(() => setFailed(false), 2000)
-      })
-  }, [path])
-
-  if (!path) return null
-  return (
-    <button type="button" className="pixel-btn" onClick={open} title="Open in terminal">
-      {failed ? 'Could not open' : 'Open terminal'}
-    </button>
-  )
-}
-
-function CopyPathButton({ path }: { path: string }) {
-  const [copied, setCopied] = useState(false)
-
-  const copy = useCallback(() => {
-    navigator.clipboard
-      .writeText(path)
-      .then(() => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      })
-      .catch(() => {})
-  }, [path])
-
-  if (!path) return null
-  return (
-    <button type="button" onClick={copy} title="Copy path">
-      {copied ? 'Copied' : 'Copy path'}
-    </button>
-  )
-}

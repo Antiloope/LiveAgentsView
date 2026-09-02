@@ -1,6 +1,7 @@
 // Command lav is both the daemon and its own CLI: `lav serve` runs the
-// daemon, `lav init` wires up provider hooks, `lav status` is a quick
-// CLI-only view without opening the browser.
+// daemon, `lav status` is a quick CLI-only view without opening the
+// browser, and `lav pilot-runner`/`lav pilot-mcp` are internal helpers a
+// piloted session's process runs under — not meant to be invoked by hand.
 package main
 
 import (
@@ -14,7 +15,8 @@ import (
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/daemon"
-	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/installer"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotmcp"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotrunner"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/service"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
 	webassets "github.com/Antiloope/LiveAgentsView/apps/lav/web"
@@ -28,12 +30,18 @@ func main() {
 	switch os.Args[1] {
 	case "serve":
 		cmdServe()
-	case "init":
-		cmdInit(os.Args[2:])
 	case "status":
 		cmdStatus()
 	case "service":
 		cmdService(os.Args[2:])
+	case "pilot-runner":
+		if err := pilotrunner.Run(os.Args[2:]); err != nil {
+			log.Fatalf("pilot-runner: %v", err)
+		}
+	case "pilot-mcp":
+		if err := pilotmcp.Run(os.Args[2:]); err != nil {
+			log.Fatalf("pilot-mcp: %v", err)
+		}
 	default:
 		usage()
 		os.Exit(1)
@@ -41,7 +49,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: lav <serve|init [--dry-run]|status|service install [--dry-run]>")
+	fmt.Fprintln(os.Stderr, "usage: lav <serve|status|service install [--dry-run]>")
 }
 
 // dataDir is LiveAgentsView's own data directory from this process's
@@ -66,6 +74,22 @@ func port() string {
 	return "8420"
 }
 
+// selfBinary resolves this running binary's own real path, for piloted
+// sessions to re-exec as "lav pilot-runner" — resolving symlinks the same
+// way cmdService already does for the same reason (a service definition or
+// a spawned pilot-runner both need a real, stable path, not one that
+// depends on whatever symlink happened to be used to invoke `serve`).
+func selfBinary() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	return exe, nil
+}
+
 func cmdServe() {
 	dir := dataDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -82,58 +106,17 @@ func cmdServe() {
 		log.Fatalf("embed frontend: %v", err)
 	}
 
-	srv := daemon.New(st, classifier.NewRules(), webFS)
+	exe, err := selfBinary()
+	if err != nil {
+		log.Fatalf("resolve own binary path: %v", err)
+	}
+
+	srv := daemon.New(st, classifier.NewRules(), webFS, dir, exe)
 	addr := "127.0.0.1:" + port()
 	log.Printf("lav daemon listening on %s (data: %s)", addr, dir)
 	if err := http.ListenAndServe(addr, srv); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
-}
-
-func cmdInit(args []string) {
-	// LAV_HOST_HOME / LAV_HOME_HOST_PATH are set when running inside the dev
-	// container (compose.dev.yaml) so generated hook commands reference real
-	// host paths, not container-internal ones. Empty in a native run, where
-	// the container and host filesystem views are the same thing.
-	home := os.Getenv("LAV_HOST_HOME")
-	if home == "" {
-		h, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatalf("resolve home dir: %v", err)
-		}
-		home = h
-	}
-
-	dryRun := false
-	for _, a := range args {
-		if a == "--dry-run" {
-			dryRun = true
-		}
-	}
-
-	res, err := installer.Init(installer.Options{
-		Home:       home,
-		LavHome:    dataDir(),
-		LavHomeRef: os.Getenv("LAV_HOME_HOST_PATH"),
-		Port:       port(),
-		DryRun:     dryRun,
-	})
-	if err != nil {
-		log.Fatalf("lav init: %v", err)
-	}
-
-	for _, line := range res.Preview {
-		fmt.Println(line)
-	}
-	if len(res.Providers) == 0 {
-		fmt.Println("\nNo provider config found to touch.")
-		return
-	}
-	if dryRun {
-		fmt.Println("\n(dry run — nothing written)")
-		return
-	}
-	fmt.Println("\nDone. Hooks installed for:", res.Providers)
 }
 
 // cmdService registers the installed lav binary as a launchd (macOS) or
@@ -152,12 +135,9 @@ func cmdService(args []string) {
 		}
 	}
 
-	exe, err := os.Executable()
+	exe, err := selfBinary()
 	if err != nil {
 		log.Fatalf("resolve own binary path: %v", err)
-	}
-	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = resolved
 	}
 
 	res, err := service.Install(service.Options{

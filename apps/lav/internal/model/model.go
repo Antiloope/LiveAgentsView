@@ -12,13 +12,12 @@ const (
 	ProviderCursor     Provider = "cursor"
 )
 
+// Fidelity has exactly one value now that adopted/hooks sessions are gone —
+// kept as a field (not collapsed away) so the Session shape and its stored
+// rows don't change; every session LiveAgentsView creates is Driver.
 type Fidelity string
 
-const (
-	FidelityDriver  Fidelity = "driver"
-	FidelityHooks   Fidelity = "hooks"
-	FidelityTailing Fidelity = "tailing"
-)
+const FidelityDriver Fidelity = "driver"
 
 type State string
 
@@ -30,23 +29,6 @@ const (
 	StateFailed  State = "failed"
 	StateIdle    State = "idle"
 )
-
-// Signal is what a provider adapter derives from one raw hook payload.
-// State is left empty when the raw event is ambiguous (every provider's
-// "turn ended" signal looks the same whether the agent finished or asked a
-// question) — the caller then runs the end-of-turn classifier on
-// LastMessage to resolve it to StateWaiting or StateDone.
-type Signal struct {
-	Provider    Provider
-	SessionID   string
-	Cwd         string
-	Repo        string
-	Branch      string
-	HookEvent   string
-	State       State
-	LastMessage string
-	Raw         string
-}
 
 // Session is one tracked agent session, as persisted and served to the UI.
 type Session struct {

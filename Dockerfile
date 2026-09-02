@@ -3,10 +3,10 @@
 #
 # Docker is how this project is built without installing Go or Node on the
 # host. The final runtime image below (what scripts/dev-up.sh actually runs)
-# can ingest adopted-mode hook events over HTTP with no host access needed,
-# but piloted sessions (internal/pilot) spawn `claude`/`agent` against the
-# host's real filesystem, git config and login state — those only work when
-# the daemon runs natively, via the native-binary stage below and
+# serves the dashboard and API with no host access needed, but piloted
+# sessions (internal/pilot) spawn `claude`/`agent` against the host's real
+# filesystem, git config and login state — those only work when the daemon
+# runs natively, via the native-binary stage below and
 # scripts/lav-service-install.sh, not in this container.
 
 # --- frontend ---------------------------------------------------------

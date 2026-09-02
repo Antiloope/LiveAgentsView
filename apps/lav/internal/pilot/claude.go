@@ -1,23 +1,22 @@
 package pilot
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os/exec"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotwire"
 )
 
-// launchClaude starts Claude Code as a long-lived driver process: with
-// --input-format stream-json it keeps reading stdin for further turns
-// instead of exiting after the first one, which is what lets SendMessage
-// keep talking to the same process across a whole piloted session.
+// launchClaude starts a Claude Code piloted session by spawning its
+// pilot-runner (see spawnRunner) with --input-format stream-json, which
+// keeps it reading stdin for further turns instead of exiting after the
+// first one — what lets SendMessage keep talking to the same process across
+// a whole session, and what lets ReconcileOnStartup reconnect to it later.
 // resumeSessionID is empty for a fresh launch (a new --session-id is
-// generated) and set to re-attach to a session whose process previously
-// died (--resume), per Acceptance's resume item.
+// generated) and set to re-attach a session whose process previously
+// exited (--resume).
 func (m *Manager) launchClaude(ctx context.Context, ps *pilotSession, spec LaunchSpec, resumeSessionID string) error {
 	id := resumeSessionID
 	if id == "" {
@@ -31,43 +30,22 @@ func (m *Manager) launchClaude(ctx context.Context, ps *pilotSession, spec Launc
 	m.sessions[id] = ps
 	m.mu.Unlock()
 
-	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--permission-mode", "default"}
+	var extra []string
 	if resumeSessionID != "" {
-		args = append(args, "--resume", resumeSessionID)
-	} else {
-		args = append(args, "--session-id", id)
+		extra = append(extra, "--resume")
 	}
-	cmd := exec.Command("claude", args...)
-	cmd.Dir = spec.Cwd
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("claude stdin pipe: %w", err)
+	if err := m.spawnRunner(ps, extra); err != nil {
+		return err
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("claude stdout pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start claude: %w", err)
-	}
-
-	ps.mu.Lock()
-	ps.cmd = cmd
-	ps.stdin = stdin
-	ps.running = true
-	ps.mu.Unlock()
 
 	m.upsert(ctx, ps, model.StateWorking, "")
 
 	if spec.Prompt != "" {
 		m.emit(ctx, ps, Event{Kind: EventUser, Text: spec.Prompt})
-		if _, err := stdin.Write(claudeUserMessage(spec.Prompt)); err != nil {
+		if _, err := ps.stdin.Write(claudeUserMessage(spec.Prompt)); err != nil {
 			return fmt.Errorf("send initial prompt: %w", err)
 		}
 	}
-
-	go m.readClaudeStdout(ps, stdout)
 	return nil
 }
 
@@ -83,15 +61,22 @@ func (m *Manager) sendClaudeMessage(ps *pilotSession, text string) error {
 	return err
 }
 
+// approveClaudePermission answers a pending approval_prompt call — relayed by
+// pilot-runner from its pilot-mcp helper, see handleClaudePermissionRequest —
+// by sending the decision back over the same control socket the runner
+// already dials this session's stdin/kill through. Not written to the
+// child's own stdin: the child never asked there in the first place (see
+// package doc), the runner's blocked pilot-mcp connection is what's actually
+// waiting for this.
 func (m *Manager) approveClaudePermission(ps *pilotSession, requestID string, approve bool) error {
 	ps.mu.Lock()
-	running, stdin := ps.running, ps.stdin
+	running, conn := ps.running, ps.conn
 	known := ps.pending[requestID]
 	if known {
 		delete(ps.pending, requestID)
 	}
 	ps.mu.Unlock()
-	if !running || stdin == nil {
+	if !running || conn == nil {
 		return ErrNotRunning
 	}
 	if !known {
@@ -99,36 +84,41 @@ func (m *Manager) approveClaudePermission(ps *pilotSession, requestID string, ap
 	}
 	approved := approve
 	m.emit(context.Background(), ps, Event{Kind: EventPermissionResolved, RequestID: requestID, Approved: &approved})
-	_, err := stdin.Write(claudePermissionResponse(requestID, approve))
-	return err
+	return pilotwire.Encode(conn, pilotwire.ClientMsg{Op: "permission_response", RequestID: requestID, Approve: approve})
+}
+
+// handleClaudePermissionRequest turns one permission ask relayed by
+// pilot-runner (originally an approval_prompt tools/call it received from
+// its pilot-mcp helper — see internal/pilotrunner and internal/pilotmcp)
+// into the same EventPermissionRequest/StateBlocked the dashboard already
+// renders an Approve/Deny card for. approveClaudePermission answers it.
+func (m *Manager) handleClaudePermissionRequest(ctx context.Context, ps *pilotSession, req *pilotwire.PermissionRequest) {
+	ps.mu.Lock()
+	ps.pending[req.RequestID] = true
+	ps.mu.Unlock()
+	m.emit(ctx, ps, Event{Kind: EventPermissionRequest, ToolName: req.ToolName, ToolInput: req.Input, RequestID: req.RequestID})
+	m.upsert(ctx, ps, model.StateBlocked, "")
 }
 
 // interruptClaude asks the live process to stop its current turn without
-// exiting. The exact control-protocol shape is Claude Code's documented
-// stream-json control channel, not something confirmed against a real
-// authenticated run in this environment (the sandbox this was built in
-// cannot log in to the CLI it is driving) — if a real run shows a different
-// shape, buildInterruptRequest is the one place to fix.
+// exiting. Live-confirmed shape: the CLI acknowledges the control_request
+// with control_response{subtype:"success"} and the process survives, but the
+// turn's own "result" line comes back as is_error:true,
+// subtype:"error_during_execution" — indistinguishable on its own from a
+// genuine failure. interrupted marks that the next such result line was
+// asked for, not a crash — see handleClaudeLine's "result" case.
 func (m *Manager) interruptClaude(ps *pilotSession) error {
 	ps.mu.Lock()
 	running, stdin := ps.running, ps.stdin
+	if running {
+		ps.interrupted = true
+	}
 	ps.mu.Unlock()
 	if !running || stdin == nil {
 		return ErrNotRunning
 	}
 	_, err := stdin.Write(buildInterruptRequest())
 	return err
-}
-
-func (m *Manager) cancelClaude(ps *pilotSession) error {
-	ps.mu.Lock()
-	cmd := ps.cmd
-	ps.stoppedByUser = true
-	ps.mu.Unlock()
-	if cmd == nil || cmd.Process == nil {
-		return ErrNotRunning
-	}
-	return cmd.Process.Kill()
 }
 
 // claudeUserMessage wraps free text in the role/content envelope Claude
@@ -145,27 +135,6 @@ func claudeUserMessage(text string) []byte {
 	return append(b, '\n')
 }
 
-// claudePermissionResponse answers a control_request{subtype:"can_use_tool"}
-// the CLI sent asking whether a tool call may proceed. Shape follows Claude
-// Code's documented Agent SDK control protocol; not live-confirmed here for
-// the same auth reason as buildInterruptRequest.
-func claudePermissionResponse(requestID string, approve bool) []byte {
-	body := map[string]any{"behavior": "deny", "message": "denied from LiveAgentsView"}
-	if approve {
-		body = map[string]any{"behavior": "allow"}
-	}
-	msg := map[string]any{
-		"type": "control_response",
-		"response": map[string]any{
-			"subtype":    "can_use_tool",
-			"request_id": requestID,
-			"response":   body,
-		},
-	}
-	b, _ := json.Marshal(msg)
-	return append(b, '\n')
-}
-
 func buildInterruptRequest() []byte {
 	msg := map[string]any{
 		"type":       "control_request",
@@ -174,18 +143,6 @@ func buildInterruptRequest() []byte {
 	}
 	b, _ := json.Marshal(msg)
 	return append(b, '\n')
-}
-
-// claudeControlRequest is the CLI-initiated shape asking the driver for a
-// permission decision.
-type claudeControlRequest struct {
-	Type      string `json:"type"`
-	RequestID string `json:"request_id"`
-	Request   struct {
-		Subtype  string          `json:"subtype"`
-		ToolName string          `json:"tool_name"`
-		Input    json.RawMessage `json:"input"`
-	} `json:"request"`
 }
 
 type claudeContentBlock struct {
@@ -216,38 +173,17 @@ type claudeSystemLine struct {
 	SessionID string `json:"session_id"`
 }
 
-// readClaudeStdout parses one JSON line at a time and turns it into
-// transcript events / state transitions. Unrecognized top-level types are
-// still shown, as a raw passthrough event, rather than silently dropped —
-// this driver's model of the protocol is best-effort (see the interrupt/
-// permission functions above), so anything it doesn't specifically know
-// about should still reach the dashboard.
-func (m *Manager) readClaudeStdout(ps *pilotSession, stdout io.Reader) {
-	ctx := context.Background()
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-		m.handleClaudeLine(ctx, ps, line)
-	}
-
-	ps.mu.Lock()
-	cmd := ps.cmd
-	ps.running = false
-	ps.mu.Unlock()
-
-	var waitErr error
-	if cmd != nil {
-		waitErr = cmd.Wait()
-	}
-	m.finalizeProcess(ctx, ps, waitErr)
-}
-
+// handleClaudeLine turns one raw stream-json line from Claude Code's stdout
+// (relayed live by pilot-runner, or replayed from its durable transcript on
+// reconnect) into transcript events and session state transitions.
+// Permission requests never arrive on this channel at all — see
+// handleClaudePermissionRequest. Unrecognized top-level types (including the
+// control_response that acknowledges an interrupt) are still shown, as a raw
+// passthrough event, rather than silently dropped.
 func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line []byte) {
+	if len(line) == 0 {
+		return
+	}
 	var probe struct {
 		Type string `json:"type"`
 	}
@@ -282,20 +218,6 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 			}
 		}
 
-	case "control_request":
-		var cr claudeControlRequest
-		if err := json.Unmarshal(line, &cr); err != nil {
-			return
-		}
-		if cr.Request.Subtype != "can_use_tool" {
-			return
-		}
-		ps.mu.Lock()
-		ps.pending[cr.RequestID] = true
-		ps.mu.Unlock()
-		m.emit(ctx, ps, Event{Kind: EventPermissionRequest, ToolName: cr.Request.ToolName, ToolInput: cr.Request.Input, RequestID: cr.RequestID})
-		m.upsert(ctx, ps, model.StateBlocked, "")
-
 	case "result":
 		var r claudeResultLine
 		if err := json.Unmarshal(line, &r); err != nil {
@@ -303,11 +225,22 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 		}
 		ps.mu.Lock()
 		lastText := ps.lastText
+		interrupted := ps.interrupted
+		ps.interrupted = false
 		ps.mu.Unlock()
 		if r.Result != "" {
 			lastText = r.Result
 		}
 		if r.IsError {
+			if interrupted && r.Subtype == "error_during_execution" {
+				// A requested interrupt, not a crash: the process is still
+				// alive and its stdin still open, so this reads as DONE
+				// (ready for the next message) rather than FAILED (which the
+				// dashboard reads as "process gone, offer Resume").
+				m.emit(ctx, ps, Event{Kind: EventSystem, Text: "turn interrupted"})
+				m.upsert(ctx, ps, model.StateDone, lastText)
+				return
+			}
 			m.upsert(ctx, ps, model.StateFailed, lastText)
 			return
 		}
@@ -325,4 +258,3 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 		m.emit(ctx, ps, Event{Kind: EventSystem, Text: string(line)})
 	}
 }
-

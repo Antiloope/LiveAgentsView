@@ -24,7 +24,7 @@ Each step leaves a handoff block to paste into another agent.
 | [adopted-mode-mvp](specs/adopted-mode-mvp.md) | validated | none |
 | [native-host-runtime](specs/native-host-runtime.md) | validated | none |
 | [piloted-mode-mvp](specs/piloted-mode-mvp.md) | validated | none |
-| [piloted-only-mode](specs/piloted-only-mode.md) | ready | implement |
+| [piloted-only-mode](specs/piloted-only-mode.md) | in-progress | implement |
 
 Statuses: `draft` · `ready` · `in-progress` · `done` · `validated` · `abandoned`.
 

@@ -1,7 +1,7 @@
 ---
 title: Piloted-only mode — remove adopted/hooks entirely, detached-process continuity
 slug: piloted-only-mode
-status: ready
+status: in-progress
 created: 2026-09-02
 updated: 2026-09-02
 next: implement
@@ -191,7 +191,82 @@ implementation finds a real blocker.
 
 ## How
 
-_Filled in during implementation._
+**Removal.** `internal/ingest`, `internal/installer` and `internal/terminal`
+deleted outright. `/hooks/*` routes, `handleHook`, `lav init` and
+`/api/open-terminal` removed from `internal/daemon` and `cmd/lav` — the
+open-terminal/copy-path removal extends past what Acceptance listed
+verbatim: those actions existed only for the read-only adopted-session
+drawer view, so once that view is gone the backend route had no caller left
+and stayed only as dead code. `model.Fidelity` keeps its type and its one
+remaining value (`FidelityDriver`) rather than being deleted outright — the
+Session shape and its stored rows are unchanged, only Hooks/Tailing are
+gone, per Acceptance's own "if a model.Fidelity enum still exists" framing.
+`model.Provider` keeps all three values including `codex`, since Codex stays
+a recognized-but-unusable provider per Out of scope, not a deleted concept.
+`apps/web`: `SessionDetails`/`OpenTerminalButton`/`CopyPathButton` and the
+`canPilot` branch deleted from `SessionDrawer.tsx` — every session now
+always renders `PilotChat`. `Fidelity` dropped from the frontend `Session`
+type (the backend still sends the field; nothing renders it). `store.go`
+purges non-Driver session/event rows unconditionally on every `migrate()` —
+idempotent, so a no-op after the first run on the upgraded binary.
+
+**Hooks uninstall.** New `internal/hooksuninstall` package (`lav
+uninstall-hooks` CLI command) is the symmetric inverse of the deleted
+installer: same per-provider matching rule for "is this entry ours", same
+script-path convention. Codex's original chained `notify` target (if any)
+is recovered by parsing the installed `codex-notify.sh` forwarder script
+itself, not the config file — the config's own `notify` line only ever
+pointed at the forwarder; the pre-existing target it wrapped only survives
+inside that script. The CLI always previews (dry-run) first, then requires
+typed `yes` confirmation (or `--yes`) before a second, real call actually
+writes — each touched file is backed up (`<file>.bak-<UTC timestamp>`)
+immediately before being rewritten. Verified with a driver program against
+sandboxed copies of this machine's real `~/.claude/settings.json`,
+`~/.codex/config.toml`, `~/.cursor/hooks.json` and their installed forwarder
+scripts (real content, safe location): correct output for all three
+providers, all files still valid JSON/TOML afterward, Codex's real chained
+SkyComputerUseClient target correctly recovered.
+
+**Restart continuity.** New `internal/pilotwire` (wire protocol + on-disk
+paths) and `internal/pilotrunner` (`lav pilot-runner`, the detached shim)
+packages. `internal/pilot` no longer spawns `claude`/`agent` as its own
+direct child: it re-execs itself as `lav pilot-runner` with
+`SysProcAttr.Setsid` (its own session, no shared pipes, stdio pointed at
+`/dev/null`) — a daemon restart's pipe teardown is what killed the child
+before, and Setsid also keeps it out of the reach of a signal sent to the
+daemon's own process group (`launchctl kickstart -k`, a terminal Ctrl-C).
+The runner owns the real child process, appends every stdout line to a
+durable `<lavHome>/pilot/<id>.jsonl` file, and exposes a Unix domain socket
+(`<lavHome>/pilot/<id>.sock`, filesystem-local — no new network-reachable
+surface) that the daemon dials to relay stdin/kill and receive live +
+replayed transcript lines; all stream-json parsing stays in
+`internal/pilot`, unchanged, now fed from the socket instead of a direct
+pipe. `ReconcileOnStartup` dials each live-looking session's socket instead
+of unconditionally marking it idle: a successful dial reconnects (replaying
+only what a small per-session `<id>.offset` file says wasn't processed yet)
+and leaves state as-is; a failed dial falls back to exactly the old
+mark-idle-offer-Resume behavior. A plain socket disconnect with no explicit
+"exited" frame (the daemon itself restarting) is never treated as the
+piloted process exiting — only an explicit frame from the runner is.
+
+Cursor's very first turn (no chat id yet — cursor-agent assigns it, only
+learned from its own first output line) stays on the old direct-pipe path,
+not detached — Open questions explicitly accepts this as a low-stakes gap,
+since cursor-agent's own `--resume` semantics pick up a lost mid-turn
+process on the very next message regardless. Every Cursor turn after the
+first, and every Claude Code launch/resume, gets full restart continuity.
+
+Orphan discoverability (Acceptance) is satisfied by the reconnect logic
+itself: a piloted session's row is never deleted, so any future `lav serve`
+against the same data directory dials its socket on startup exactly like
+any other session — no separate orphan-scan or CLI was added, since nothing
+in Acceptance needed one beyond what reconnect-on-startup already covers.
+
+Compiles and `go vet` clean via Docker (`golang:1.25-alpine`); frontend
+builds and typechecks clean via `vite build` + `tsc --noEmit`.
+`scripts/lav-init.sh` removed, `scripts/lav-uninstall-hooks.sh` added;
+`compose.dev.yaml`/`compose.yaml`/`Dockerfile` comments and
+`apps/lav/README.md` updated to match.
 
 ## Validation
 

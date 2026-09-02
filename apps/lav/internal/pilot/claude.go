@@ -1,23 +1,21 @@
 package pilot
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os/exec"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
 )
 
-// launchClaude starts Claude Code as a long-lived driver process: with
-// --input-format stream-json it keeps reading stdin for further turns
-// instead of exiting after the first one, which is what lets SendMessage
-// keep talking to the same process across a whole piloted session.
+// launchClaude starts a Claude Code piloted session by spawning its
+// pilot-runner (see spawnRunner) with --input-format stream-json, which
+// keeps it reading stdin for further turns instead of exiting after the
+// first one — what lets SendMessage keep talking to the same process across
+// a whole session, and what lets ReconcileOnStartup reconnect to it later.
 // resumeSessionID is empty for a fresh launch (a new --session-id is
-// generated) and set to re-attach to a session whose process previously
-// died (--resume), per Acceptance's resume item.
+// generated) and set to re-attach a session whose process previously
+// exited (--resume).
 func (m *Manager) launchClaude(ctx context.Context, ps *pilotSession, spec LaunchSpec, resumeSessionID string) error {
 	id := resumeSessionID
 	if id == "" {
@@ -31,43 +29,22 @@ func (m *Manager) launchClaude(ctx context.Context, ps *pilotSession, spec Launc
 	m.sessions[id] = ps
 	m.mu.Unlock()
 
-	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--permission-mode", "default"}
+	var extra []string
 	if resumeSessionID != "" {
-		args = append(args, "--resume", resumeSessionID)
-	} else {
-		args = append(args, "--session-id", id)
+		extra = append(extra, "--resume")
 	}
-	cmd := exec.Command("claude", args...)
-	cmd.Dir = spec.Cwd
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("claude stdin pipe: %w", err)
+	if err := m.spawnRunner(ps, extra); err != nil {
+		return err
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("claude stdout pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start claude: %w", err)
-	}
-
-	ps.mu.Lock()
-	ps.cmd = cmd
-	ps.stdin = stdin
-	ps.running = true
-	ps.mu.Unlock()
 
 	m.upsert(ctx, ps, model.StateWorking, "")
 
 	if spec.Prompt != "" {
 		m.emit(ctx, ps, Event{Kind: EventUser, Text: spec.Prompt})
-		if _, err := stdin.Write(claudeUserMessage(spec.Prompt)); err != nil {
+		if _, err := ps.stdin.Write(claudeUserMessage(spec.Prompt)); err != nil {
 			return fmt.Errorf("send initial prompt: %w", err)
 		}
 	}
-
-	go m.readClaudeStdout(ps, stdout)
 	return nil
 }
 
@@ -118,17 +95,6 @@ func (m *Manager) interruptClaude(ps *pilotSession) error {
 	}
 	_, err := stdin.Write(buildInterruptRequest())
 	return err
-}
-
-func (m *Manager) cancelClaude(ps *pilotSession) error {
-	ps.mu.Lock()
-	cmd := ps.cmd
-	ps.stoppedByUser = true
-	ps.mu.Unlock()
-	if cmd == nil || cmd.Process == nil {
-		return ErrNotRunning
-	}
-	return cmd.Process.Kill()
 }
 
 // claudeUserMessage wraps free text in the role/content envelope Claude
@@ -216,38 +182,17 @@ type claudeSystemLine struct {
 	SessionID string `json:"session_id"`
 }
 
-// readClaudeStdout parses one JSON line at a time and turns it into
-// transcript events / state transitions. Unrecognized top-level types are
-// still shown, as a raw passthrough event, rather than silently dropped —
-// this driver's model of the protocol is best-effort (see the interrupt/
-// permission functions above), so anything it doesn't specifically know
-// about should still reach the dashboard.
-func (m *Manager) readClaudeStdout(ps *pilotSession, stdout io.Reader) {
-	ctx := context.Background()
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-		m.handleClaudeLine(ctx, ps, line)
-	}
-
-	ps.mu.Lock()
-	cmd := ps.cmd
-	ps.running = false
-	ps.mu.Unlock()
-
-	var waitErr error
-	if cmd != nil {
-		waitErr = cmd.Wait()
-	}
-	m.finalizeProcess(ctx, ps, waitErr)
-}
-
+// handleClaudeLine turns one raw stream-json line from Claude Code's stdout
+// (relayed live by pilot-runner, or replayed from its durable transcript on
+// reconnect) into transcript events and session state transitions.
+// Unrecognized top-level types are still shown, as a raw passthrough event,
+// rather than silently dropped — this driver's model of the protocol is
+// best-effort (see the interrupt/permission functions above), so anything
+// it doesn't specifically know about should still reach the dashboard.
 func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line []byte) {
+	if len(line) == 0 {
+		return
+	}
 	var probe struct {
 		Type string `json:"type"`
 	}
@@ -325,4 +270,3 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 		m.emit(ctx, ps, Event{Kind: EventSystem, Text: string(line)})
 	}
 }
-

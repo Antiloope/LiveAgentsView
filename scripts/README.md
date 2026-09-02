@@ -13,9 +13,10 @@ typed from memory, and no dependencies installed on the host beyond Docker.
   systemd `--user` (Linux) service so the daemon survives a full host reboot
   without Docker involved at runtime. Mutually exclusive with `dev-up.sh` on
   port 8420 — stop one before starting the other.
-- `lav-init.sh [--dry-run]` — wire LiveAgentsView's hooks into Claude Code,
-  Codex and Cursor's existing config, without overwriting anything already
-  there. Run this once the daemon is up (either path above).
+- `lav-uninstall-hooks.sh [--dry-run] [--yes]` — remove hooks a previous
+  version's `lav init` wrote into Claude Code, Codex and Cursor's existing
+  config (piloted-only mode has nothing left to ingest them). Backs up each
+  touched file first and asks for confirmation unless `--yes` is passed.
 - `lav-status.sh` — list known sessions from the CLI, without opening the
   dashboard. Talks to `dev-up.sh`'s container; against the native service use
   `~/.liveagentsview/bin/lav status` directly.

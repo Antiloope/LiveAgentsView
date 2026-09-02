@@ -66,6 +66,22 @@ CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id, received_at)
 	if err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	return s.purgeNonDriverSessions(ctx)
+}
+
+// purgeNonDriverSessions removes hooks/tailing-fidelity rows left over from
+// before piloted-only mode — adopted sessions are no longer a concept this
+// app tracks. Safe to run on every startup: a no-op once the first run after
+// upgrading has cleared them.
+func (s *Store) purgeNonDriverSessions(ctx context.Context) error {
+	if _, err := s.db.ExecContext(ctx, `
+DELETE FROM events WHERE session_id IN (SELECT id FROM sessions WHERE fidelity != ?)`,
+		string(model.FidelityDriver)); err != nil {
+		return fmt.Errorf("purge non-driver events: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE fidelity != ?`, string(model.FidelityDriver)); err != nil {
+		return fmt.Errorf("purge non-driver sessions: %w", err)
+	}
 	return nil
 }
 

@@ -1,9 +1,15 @@
 // Package pilot launches Claude Code and Cursor as child processes on behalf
 // of the dashboard, streams their transcript live, and routes free-form
 // messages, permission decisions, interrupts and cancellation back to them.
-// Unlike internal/ingest, which only ever receives a hook POST, this package
-// is the one part of the daemon that spawns processes and writes to their
-// stdin.
+//
+// The actual provider process is not a direct child of this daemon: Manager
+// spawns "lav pilot-runner" (internal/pilotrunner) fully detached — its own
+// session, no shared pipes — which in turn owns the real `claude`/`agent`
+// process, durably logs its stdout to disk, and exposes a Unix domain
+// socket for control. Manager talks to a session's runner only over that
+// socket (see internal/pilotwire), so a daemon restart never has to kill
+// the child to clean up after itself, and reconnecting after one is just
+// dialing the same socket again — see ReconcileOnStartup.
 package pilot
 
 import (
@@ -12,13 +18,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotwire"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/sse"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
 )
@@ -67,21 +77,24 @@ var ErrNotRunning = fmt.Errorf("piloted session has no running process")
 // interrupted.
 var ErrTurnInProgress = fmt.Errorf("a turn is already in progress for this session")
 
-// Manager owns every piloted session's child process for the life of this
-// daemon process. It never persists process handles — a restart always
-// leaves every session with no running process, resolved via Resume.
+// Manager owns every piloted session's control connection to its detached
+// pilot-runner. It never keeps a session's process itself alive — a
+// restart's in-memory state is always rebuilt via ReconcileOnStartup, which
+// reconnects to whatever is still actually running.
 type Manager struct {
 	store      *store.Store
 	classifier classifier.Classifier
 	onSession  func(model.Session)
+	lavHome    string
+	selfExe    string
 
 	mu       sync.Mutex
 	sessions map[string]*pilotSession
 }
 
 // pilotSession is the in-memory state for one piloted session's live
-// process, guarded by mu for the fields a concurrent stdin write or stdout
-// read can race on.
+// process, guarded by mu for the fields a concurrent stdin write or a
+// runner-line read can race on.
 type pilotSession struct {
 	id       string
 	provider model.Provider
@@ -90,18 +103,24 @@ type pilotSession struct {
 	hub      *sse.Hub
 
 	mu            sync.Mutex
-	cmd           *exec.Cmd
-	stdin         io.WriteCloser
+	conn          net.Conn       // control socket to this session's pilot-runner, nil if not attached
+	stdin         io.WriteCloser // relays to the child's real stdin via conn; nil for cursor's bootstrap turn (see cursor.go)
+	bootstrapCmd  *exec.Cmd      // set only for cursor's first, not-yet-detached turn — see launchCursorBootstrap
 	running       bool
-	stoppedByUser bool // set before Kill() so exit handling reports IDLE, not FAILED
+	stoppedByUser bool // set before killing so exit handling reports IDLE, not FAILED
 	lastText      string
 	pending       map[string]bool // request_id -> true while awaiting a permission decision
 }
 
-func NewManager(st *store.Store, cls classifier.Classifier, onSession func(model.Session)) *Manager {
+// NewManager builds a Manager. lavHome is where pilot-runner sockets,
+// transcripts and offset files live; selfExe is this running binary's own
+// path, re-exec'd as "lav pilot-runner" for every detached process.
+func NewManager(st *store.Store, cls classifier.Classifier, lavHome, selfExe string, onSession func(model.Session)) *Manager {
 	return &Manager{
 		store:      st,
 		classifier: cls,
+		lavHome:    lavHome,
+		selfExe:    selfExe,
 		onSession:  onSession,
 		sessions:   make(map[string]*pilotSession),
 	}
@@ -182,8 +201,8 @@ func (m *Manager) emit(ctx context.Context, ps *pilotSession, ev Event) {
 }
 
 // upsert persists the session's canonical state and tells the daemon to
-// broadcast it on the same global hub adopted sessions use, so piloted
-// sessions land in the one dashboard and attention queue.
+// broadcast it on its global session hub, so piloted sessions land in the
+// one dashboard and attention queue.
 func (m *Manager) upsert(ctx context.Context, ps *pilotSession, state model.State, lastMessage string) {
 	now := time.Now().UTC()
 	createdAt := now
@@ -210,9 +229,9 @@ func (m *Manager) upsert(ctx context.Context, ps *pilotSession, state model.Stat
 	}
 }
 
-// classify resolves an ambiguous end-of-turn signal exactly like the hooks
-// path does: empty means still ambiguous after a non-error exit, so run the
-// shared classifier over the last assistant text.
+// classify resolves an ambiguous end-of-turn signal: empty means still
+// ambiguous after a non-error exit, so run the shared classifier over the
+// last assistant text.
 func (m *Manager) classify(lastText string) model.State {
 	switch m.classifier.Classify(lastText) {
 	case classifier.VerdictWaiting:
@@ -222,10 +241,10 @@ func (m *Manager) classify(lastText string) model.State {
 	}
 }
 
-// finalizeProcess runs once a piloted process has actually exited (stdout
-// closed and Wait returned) for either provider. A user-requested stop
-// (interrupt or cancel, both set stoppedByUser before killing) always reads
-// as IDLE, distinct from an unrequested exit, which is a real crash.
+// finalizeProcess runs once a piloted process has actually exited, for
+// either provider. A user-requested stop (interrupt or cancel, both set
+// stoppedByUser before killing) always reads as IDLE, distinct from an
+// unrequested exit, which is a real crash.
 func (m *Manager) finalizeProcess(ctx context.Context, ps *pilotSession, waitErr error) {
 	ps.mu.Lock()
 	stopped := ps.stoppedByUser
@@ -245,9 +264,8 @@ func (m *Manager) finalizeProcess(ctx context.Context, ps *pilotSession, waitErr
 }
 
 // resolve returns the in-memory session state for id, reconstructing it from
-// SQLite if this Manager has no live record (a fresh daemon process — every
-// piloted session loses its in-memory state on restart, which is exactly
-// what Resume exists to recover from).
+// SQLite if this Manager has no live record (e.g. a session whose process
+// genuinely exited, resolved via Resume rather than reconnect).
 func (m *Manager) resolve(ctx context.Context, id string) (*pilotSession, error) {
 	m.mu.Lock()
 	ps, ok := m.sessions[id]
@@ -271,11 +289,15 @@ func (m *Manager) resolve(ctx context.Context, id string) (*pilotSession, error)
 	return ps, nil
 }
 
-// ReconcileOnStartup corrects every piloted session a previous process left
-// in a "live" state. A fresh daemon start has no process attached to any of
-// them regardless of what was last persisted, so leaving them as WORKING/
-// WAITING/BLOCKED would silently lie to the dashboard — see Resume for how
-// the user gets a live process back.
+// ReconcileOnStartup runs once at daemon startup. For every piloted session
+// last known to be live, it dials that session's pilot-runner socket: if
+// the detached process is still actually running, it reconnects (replaying
+// any transcript lines produced while this daemon was down, with no
+// duplicates and no drops — see reconnect) and leaves its state as-is,
+// immediately sendable/interruptible/cancelable again with no user action
+// needed. If the socket is gone, the process genuinely exited while this
+// daemon was down, and the session falls back to exactly the pre-restart-
+// continuity behavior: marked IDLE, Resume offered.
 func (m *Manager) ReconcileOnStartup(ctx context.Context) error {
 	sessions, err := m.store.ListSessions(ctx)
 	if err != nil {
@@ -288,6 +310,9 @@ func (m *Manager) ReconcileOnStartup(ctx context.Context) error {
 		switch sess.State {
 		case model.StateWorking, model.StateWaiting, model.StateBlocked:
 		default:
+			continue
+		}
+		if m.reconnect(ctx, sess) {
 			continue
 		}
 		sess.State = model.StateIdle
@@ -377,7 +402,7 @@ func (m *Manager) Interrupt(ctx context.Context, id string) error {
 	case model.ProviderClaudeCode:
 		return m.interruptClaude(ps)
 	case model.ProviderCursor:
-		return m.killCursor(ps)
+		return m.killPilotProcess(ps)
 	default:
 		return fmt.Errorf("unsupported piloted provider: %s", ps.provider)
 	}
@@ -390,20 +415,20 @@ func (m *Manager) Cancel(ctx context.Context, id string) error {
 		return err
 	}
 	switch ps.provider {
-	case model.ProviderClaudeCode:
-		return m.cancelClaude(ps)
-	case model.ProviderCursor:
-		return m.killCursor(ps)
+	case model.ProviderClaudeCode, model.ProviderCursor:
+		return m.killPilotProcess(ps)
 	default:
 		return fmt.Errorf("unsupported piloted provider: %s", ps.provider)
 	}
 }
 
-// Resume re-attaches a piloted session with no live process — after a daemon
-// restart, a crash, or an interrupt/cancel. For Claude Code this starts a
-// new `--resume`'d process. Cursor has no standing process to re-attach
-// (each message already is its own `--resume`'d invocation — see
-// sendCursorMessage), so this just confirms the session is known and ready.
+// Resume re-attaches a piloted session with no live process — after its
+// process really did exit (crash, or a user cancel), not after a daemon
+// restart alone (ReconcileOnStartup already reconnects those). For Claude
+// Code this starts a new `--resume`'d process. Cursor has no standing
+// process to re-attach (each message already is its own `--resume`'d
+// invocation — see sendCursorMessage), so this just confirms the session is
+// known and ready.
 func (m *Manager) Resume(ctx context.Context, id string) (model.Session, error) {
 	ps, err := m.resolve(ctx, id)
 	if err != nil {
@@ -428,4 +453,184 @@ func (m *Manager) Resume(ctx context.Context, id string) (model.Session, error) 
 		return model.Session{}, fmt.Errorf("unsupported piloted provider: %s", ps.provider)
 	}
 	return m.currentSession(ctx, ps)
+}
+
+// --- pilot-runner process management ---------------------------------------
+
+// spawnRunner starts "lav pilot-runner" for ps.id fully detached from this
+// daemon process — its own session (SysProcAttr.Setsid), stdio pointed at
+// /dev/null rather than shared pipes — so nothing about the runner's
+// lifetime depends on this process staying alive, then dials its control
+// socket and attaches from the beginning (since=0: a freshly spawned runner
+// has nothing to replay). Used for every Claude Code launch and resume, and
+// for every Cursor message after the session's first — see cursor.go.
+func (m *Manager) spawnRunner(ps *pilotSession, extraArgs []string) error {
+	args := append([]string{
+		"pilot-runner",
+		"--session", ps.id,
+		"--provider", string(ps.provider),
+		"--cwd", ps.cwd,
+		"--lav-home", m.lavHome,
+	}, extraArgs...)
+
+	cmd := exec.Command(m.selfExe, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if devnull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0); err == nil {
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = devnull, devnull, devnull
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start pilot-runner: %w", err)
+	}
+	go cmd.Wait() // reap whenever it exits; never blocks this daemon
+
+	conn, err := dialWithRetry(pilotwire.SocketPath(m.lavHome, ps.id), 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("connect to pilot-runner: %w", err)
+	}
+	if err := pilotwire.Encode(conn, pilotwire.ClientMsg{Op: "attach", Since: 0}); err != nil {
+		conn.Close()
+		return fmt.Errorf("attach to pilot-runner: %w", err)
+	}
+
+	ps.mu.Lock()
+	ps.conn = conn
+	ps.stdin = &socketStdin{conn: conn}
+	ps.running = true
+	ps.stoppedByUser = false
+	ps.mu.Unlock()
+
+	go m.readFromRunner(ps, conn)
+	return nil
+}
+
+// reconnect dials an already-running session's pilot-runner socket — used
+// only by ReconcileOnStartup. Returns false when the socket is gone (the
+// process genuinely exited while this daemon was down), which the caller
+// treats as today's pre-restart-continuity fallback.
+func (m *Manager) reconnect(ctx context.Context, sess model.Session) bool {
+	conn, err := net.DialTimeout("unix", pilotwire.SocketPath(m.lavHome, sess.ID), 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	since := pilotwire.ReadOffset(m.lavHome, sess.ID)
+	if err := pilotwire.Encode(conn, pilotwire.ClientMsg{Op: "attach", Since: since}); err != nil {
+		conn.Close()
+		return false
+	}
+
+	ps := m.getOrCreate(sess.ID)
+	ps.provider = sess.Provider
+	ps.cwd = sess.Cwd
+	ps.branch = sess.Branch
+	ps.mu.Lock()
+	ps.conn = conn
+	ps.stdin = &socketStdin{conn: conn}
+	ps.running = true
+	ps.mu.Unlock()
+
+	go m.readFromRunner(ps, conn)
+	return true
+}
+
+// readFromRunner decodes transcript lines forwarded over a pilot-runner's
+// control socket and feeds them through the same per-provider line handler
+// live stdout used before this session had restart continuity — the wire
+// format changed, the parsing didn't. An explicit "exited" frame means the
+// child process itself is gone, handled exactly like today's process exit.
+// A plain disconnect with no such frame means only the *connection* died —
+// almost always this daemon process shutting down for a restart — and must
+// not be mistaken for the piloted process exiting: the session's persisted
+// state is left untouched, for ReconcileOnStartup to resolve for real on
+// the next boot via a fresh dial.
+func (m *Manager) readFromRunner(ps *pilotSession, conn net.Conn) {
+	ctx := context.Background()
+	sc := pilotwire.NewScanner(conn)
+	for sc.Scan() {
+		var msg pilotwire.ServerMsg
+		if err := json.Unmarshal(sc.Bytes(), &msg); err != nil {
+			continue
+		}
+		if msg.Exited {
+			ps.mu.Lock()
+			ps.running = false
+			ps.conn = nil
+			ps.mu.Unlock()
+			var waitErr error
+			if msg.Err != "" {
+				waitErr = fmt.Errorf("%s", msg.Err)
+			}
+			m.finalizeProcess(ctx, ps, waitErr)
+			return
+		}
+		if msg.Line != "" {
+			switch ps.provider {
+			case model.ProviderClaudeCode:
+				m.handleClaudeLine(ctx, ps, []byte(msg.Line))
+			case model.ProviderCursor:
+				m.handleCursorLine(ctx, ps, []byte(msg.Line))
+			}
+		}
+		if msg.Seq > 0 {
+			_ = pilotwire.WriteOffset(m.lavHome, ps.id, msg.Seq)
+		}
+	}
+
+	ps.mu.Lock()
+	ps.running = false
+	ps.conn = nil
+	ps.mu.Unlock()
+}
+
+// killPilotProcess ends a piloted session's process regardless of which
+// path launched it: over the control socket for anything running through a
+// pilot-runner (every Claude Code session, every Cursor turn after the
+// first), or directly for Cursor's not-yet-detached bootstrap turn.
+func (m *Manager) killPilotProcess(ps *pilotSession) error {
+	ps.mu.Lock()
+	conn := ps.conn
+	bootstrap := ps.bootstrapCmd
+	ps.stoppedByUser = true
+	ps.mu.Unlock()
+
+	if conn != nil {
+		return pilotwire.Encode(conn, pilotwire.ClientMsg{Op: "kill"})
+	}
+	if bootstrap != nil && bootstrap.Process != nil {
+		return bootstrap.Process.Kill()
+	}
+	return ErrNotRunning
+}
+
+// socketStdin relays writes meant for a piloted child's real stdin over the
+// control socket to the pilot-runner actually holding that pipe — the
+// io.WriteCloser every send/interrupt/permission-response code path already
+// wrote to before restart continuity existed.
+type socketStdin struct{ conn net.Conn }
+
+func (w *socketStdin) Write(p []byte) (int, error) {
+	if err := pilotwire.Encode(w.conn, pilotwire.ClientMsg{Op: "stdin", Data: string(p)}); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func (w *socketStdin) Close() error { return w.conn.Close() }
+
+// dialWithRetry absorbs the brief window between starting pilot-runner and
+// its control socket existing — process creation and socket bind are not
+// synchronous from this side.
+func dialWithRetry(path string, timeout time.Duration) (net.Conn, error) {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for {
+		conn, err := net.Dial("unix", path)
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+		if time.Now().After(deadline) {
+			return nil, lastErr
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }

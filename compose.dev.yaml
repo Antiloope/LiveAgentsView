@@ -1,7 +1,7 @@
 # Development overrides. Combined with compose.yaml:
 #   docker compose -f compose.yaml -f compose.dev.yaml ...
 #
-# `lav init` needs to read/write the host's provider config
+# `lav uninstall-hooks` needs to read/write the host's provider config
 # (~/.claude, ~/.codex, ~/.cursor) — those are only mounted here, not in the
 # base compose.yaml, since `lav serve` (the default/production path) never
 # needs them.
@@ -13,9 +13,10 @@ services:
       - ${HOME}/.codex:/host-home/.codex
       - ${HOME}/.cursor:/host-home/.cursor
     environment:
-      # Tells `lav init` where the *host* sees its own config (container
-      # path above) and where the host sees LiveAgentsView's data dir
-      # (/data here, but ${HOME}/.liveagentsview on the host) — so the hook
-      # commands it writes into your config are real, host-executable paths.
+      # Tells `lav uninstall-hooks` where the *host* sees its own config
+      # (container path above) and where the host sees LiveAgentsView's data
+      # dir (/data here, but ${HOME}/.liveagentsview on the host) — so the
+      # script paths it matches against config entries are the real,
+      # host-executable ones a previous "lav init" actually wrote.
       LAV_HOST_HOME: /host-home
       LAV_HOME_HOST_PATH: ${HOME}/.liveagentsview

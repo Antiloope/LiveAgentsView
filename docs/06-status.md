@@ -3,7 +3,7 @@
 Mirror of the definition documents and the code that exists. **Decides nothing.**
 Updated when a fact changes, never to anticipate one.
 
-Last updated: 2026-09-02 (piloted-mode-mvp)
+Last updated: 2026-09-02 (piloted-only-mode specified)
 
 ## Documentation
 
@@ -11,18 +11,18 @@ Last updated: 2026-09-02 (piloted-mode-mvp)
 |---|---|
 | Vision | defined — [01-vision.md](01-vision.md) |
 | Scope | defined — [02-scope.md](02-scope.md) |
-| Decisions | 14 entries — [03-decisions.md](03-decisions.md) |
+| Decisions | 16 entries — [03-decisions.md](03-decisions.md) |
 | Open questions | 2 (Q-03, Q-06), both deferred — [04-open-questions.md](04-open-questions.md) |
-| Ideas to discuss | 10 unagreed — [05-ideas-to-discuss.md](05-ideas-to-discuss.md) |
-| Inbox | 2026-09-01 product session and 2026-09-02 native-runtime follow-ups, both distilled |
+| Ideas to discuss | 10 unagreed (IDEA-06 annotated, still unagreed) — [05-ideas-to-discuss.md](05-ideas-to-discuss.md) |
+| Inbox | 2026-09-01 product session, 2026-09-02 native-runtime follow-ups, and 2026-09-02 dashboard-scope/restart-continuity session, all distilled |
 
 ## Product
 
 | Piece | Status |
 |---|---|
-| Posture | decided — observer + opt-in pilot |
+| Posture | decided — piloted only as of 2026-09-02 (supersedes observer + opt-in pilot); adopted/hooks removed entirely, not just hidden |
 | Stack | decided — Go, SQLite, single binary with embedded frontend (React + Vite) |
-| Providers | decided — Claude Code, Codex, Cursor, all three built together in the first spec |
+| Providers | Claude Code and Cursor usable (piloted adapters exist); Codex has no representation until a driver adapter is built (see 2026-09-02 in [03-decisions.md](03-decisions.md)) |
 | Attention taxonomy | partial — completion and classifier decided, full table in IDEA-01 |
 | Canonical event model | decided — WORKING/WAITING/BLOCKED/DONE/FAILED/IDLE, validated against the 3 providers' docs |
 
@@ -77,12 +77,13 @@ Index in [sdd/README.md](sdd/README.md).
 
 ## Suggested next step
 
-No candidate follow-up specs pending from any of the three closed specs — adopted-mode-mvp,
-native-host-runtime and piloted-mode-mvp are all `validated`. Four new, unprioritized ideas
-came out of setting up the native service, logged as IDEA-07 through IDEA-10 in
-[05-ideas-to-discuss.md](05-ideas-to-discuss.md): a `lav version` command, an uninstall
-path, a friendlier local dashboard address, and prebuilt binary distribution with a
-first-run install wizard. None agreed yet.
-
-No spec currently open. The next meaningful product increment needs its own `specify` pass
-when one is proposed.
+[piloted-only-mode](sdd/specs/piloted-only-mode.md) is `ready`, next step `implement`:
+remove adopted mode and hooks ingestion from the codebase entirely (not just the
+dashboard), uninstall the hooks a real `lav init` run already wrote to this machine's
+Claude Code/Codex/Cursor configs, and give piloted sessions a process supervisor so a
+`lav` restart no longer kills their live process. This also resolves the hooks-removal
+half of IDEA-08. Three other new, unprioritized ideas from setting up the native service
+are still open, logged as IDEA-07, IDEA-09 and IDEA-10 in
+[05-ideas-to-discuss.md](05-ideas-to-discuss.md): a `lav version` command, a friendlier
+local dashboard address, and prebuilt binary distribution with a first-run install
+wizard. None agreed yet.

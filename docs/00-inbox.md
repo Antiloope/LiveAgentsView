@@ -183,3 +183,72 @@ code" and "how would I install this on another machine" surfaced four gaps, none
   Docker available to compile; there's no host to fetch a prebuilt mac/linux binary from,
   and no first-run console wizard (e.g. "run as a systemd/launchd service, or start it by
   hand?").
+
+---
+
+## 2026-09-02 — Dashboard scope narrowing + piloted restart continuity
+
+**Status: distilled 2026-09-02.**
+
+Source: Rodrigo reviewing the running dashboard (this machine's real launchd service),
+asking to drop hooks-only (adopted) sessions from display — "copy path"/"open terminal"
+and the drawer info are not useful without a chat channel to act on them.
+
+### Whether adopted sessions can be chatted with instead of hidden
+
+Checked against `internal/pilot/pilot.go`, `daemon/server.go`'s `handleHook`, and both
+mode specs: an adopted session reports in via hooks, a one-way push with no channel back
+into the process — LiveAgentsView never holds a stdin handle to a session it did not
+launch itself. There is no way to start chatting with an already-running adopted session
+short of relaunching it as piloted. Confirmed from the code, not just the spec text.
+
+### What was verified on the machine (2026-09-02)
+
+Motivated by wanting a piloted session's live process to survive a `lav` restart instead
+of being killed outright (`internal/pilot.Manager` never persists a process handle —
+today's restart behavior is `ReconcileOnStartup` flipping it to idle and offering
+Resume), live-tested against this machine's real, authenticated `claude` (2.1.258,
+logged in via claude.ai, confirmed with `claude auth status`) and `agent` (Cursor,
+confirmed with `agent status`) CLIs whether either provider's native background/
+persistent-session feature could keep a piloted process alive independent of `lav`:
+
+- `claude --bg -p --input-format stream-json --output-format stream-json ...` —
+  rejected outright: `"--bg and --print conflict: --print never starts the interactive
+  session that \`claude agents\` attaches to, so the job would be unattachable."` `--bg`
+  is for the interactive terminal/agent-view session only.
+- `agent persist -p --output-format stream-json --force --trust ...` — rejected
+  outright: `"Persistence requires an interactive Linux or macOS terminal."`
+- Both tested for real (a live process launch attempt, not just reading `--help`);
+  confirmed no stray session/process was left behind afterward (`claude agents --json`,
+  `ps`).
+- This corrects the 2026-09-01 block above, which listed `--bg`/`--tmux` only as
+  available flags without confirming they compose with the stream-json driver protocol
+  — they do not, structurally: both are built for a human re-attaching to a terminal,
+  not a second machine-readable channel. The same mismatch applies to plain tmux
+  ([IDEA-06](05-ideas-to-discuss.md)) — capturing/injecting through `send-keys`/
+  `capture-pane` is built for rendered terminal text, not line-oriented JSON.
+
+### What Rodrigo decided in this session
+
+- **Revised mid-session, escalated from "hide" to "remove entirely":** LiveAgentsView no
+  longer has an adopted/hooks concept at all. It only ever knows about sessions it
+  launched itself (piloted). This means removing, not just hiding: `internal/ingest`,
+  the `/hooks/claude-code` / `/hooks/codex` / `/hooks/cursor` routes, `lav init` and
+  `internal/installer`, and — since this real machine already has real hooks installed
+  from a previous real `lav init` run — actually uninstalling those hooks from
+  `~/.claude/settings.json`, `~/.codex/config.toml` and `~/.cursor/hooks.json`, not just
+  deleting the code that wrote them. Rodrigo explicitly chose the "remove the code and
+  uninstall the real hooks" option over "remove the code but leave the already-installed
+  hooks alone."
+- Piloted sessions should survive a `lav` daemon restart without losing whatever turn
+  was in progress, via a supervisor LiveAgentsView builds itself (process detached from
+  `lav`'s own lifecycle, stdio moved off in-memory pipes onto something that survives
+  the daemon's own exit, reconnect on startup) — chosen over the smaller "auto-resume on
+  startup" alternative and over leaving today's behavior (Resume, but the in-flight turn
+  is always lost) as-is. No CLI-native shortcut for this exists (see above).
+
+Distilled into [03-decisions.md](03-decisions.md) (amended/new entries),
+[02-scope.md](02-scope.md) (rewritten posture section),
+[01-vision.md](01-vision.md) (principle 4 corrected),
+[05-ideas-to-discuss.md](05-ideas-to-discuss.md) (IDEA-06 and IDEA-08 annotated), and
+[sdd/specs/piloted-only-mode.md](sdd/specs/piloted-only-mode.md).

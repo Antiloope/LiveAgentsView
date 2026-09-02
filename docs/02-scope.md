@@ -2,45 +2,57 @@
 
 > **Status:** defined 2026-09-01. Distilled from the 2026-09-01 inbox block.
 
-## Product posture: observer + opt-in pilot
+## Product posture: piloted only
 
-Two classes of session coexist in the same interface:
+> **2026-09-02:** this section originally described two coexisting classes, **adopted**
+> (sessions launched natively, reporting in read-only via hooks) and **piloted**
+> (launched from LiveAgentsView, full control). Adopted mode is now removed entirely —
+> see [03-decisions.md](03-decisions.md) 2026-09-02 "Adopted mode and hooks ingestion
+> are removed entirely; piloted-only posture". LiveAgentsView only ever tracks sessions
+> it launched itself.
 
-| Class | How it arrives | What you can do |
-|---|---|---|
-| **Adopted** | The user launched it natively; it reports in via hooks | Read only: state, attention queue, notifications, open in the terminal |
-| **Piloted** | Launched from LiveAgentsView as a child process over `stream-json` | Answer questions, approve/deny permissions, cancel — without leaving the dashboard |
+Every session LiveAgentsView shows is one it launched itself, as a child process over
+bidirectional `stream-json`. You can answer questions, approve/deny permissions, and
+cancel — without leaving the dashboard. There is no read-only class for sessions started
+outside it; those are not tracked at all.
 
-Building the piloted mode on top of the vendor CLIs keeps the door open to a fuller
-frontend later, but that is not the goal of this scope.
+Building on top of the vendor CLIs this way keeps the door open to a fuller frontend
+later, but that is not the goal of this scope.
 
 ## What it does
 
-- Detects local coding-agent sessions and aggregates them into one dashboard.
+- Launches and aggregates coding-agent sessions into one dashboard.
 - Shows repository, worktree, branch, provider and normalized state per session.
 - Surfaces an **attention queue**: what actually needs the human, prioritized.
 - Notifies on the events that earn an interruption.
-- Lets the user jump to the originating session (adopted) or act on it directly (piloted).
+- Lets the user act on any session directly — answer, approve/deny, interrupt, cancel,
+  resume — without leaving the dashboard.
 - Shows recently finished agents.
 - Persists enough state and history to survive restarts.
 
-### Integration surfaces
+### Integration surface
 
-Three fidelity levels, used together, with the level shown per session in the UI:
+> **2026-09-02:** this originally described three fidelity levels (Driver, Hooks,
+> Tailing) shown per session. Hooks and Tailing are gone along with adopted mode — see
+> [03-decisions.md](03-decisions.md) 2026-09-02. Driver is now the only surface.
 
-1. **Driver** — bidirectional `stream-json` against the vendor CLI. Full control.
-2. **Hooks** — `~/.claude/settings.json`, `~/.codex/config.toml` `notify`. Read-only push.
-3. **Tailing** — vendor JSONL transcripts. Last resort, retroactive, no control.
-
-Transcripts alone cannot answer "is it waiting right now"; the attention signal comes
-from hooks or from driving the process.
+**Driver** — bidirectional `stream-json` against the vendor CLI. Full control: every
+event out, realtime input in, permission requests answerable from the dashboard. This is
+the only integration surface; a session with no driver process is a session
+LiveAgentsView does not know about.
 
 ### Providers in the MVP
 
-Claude Code, Codex and Cursor.
+Claude Code and Cursor have a working piloted (driver-fidelity) adapter.
 
-Known constraint: Cursor's IDE agent exposes no local hook surface, so supporting Cursor
-means supporting the `cursor-agent` CLI — a different workflow from the one used today.
+> **2026-09-02:** Codex has no driver adapter (out of scope, see
+> [piloted-mode-mvp](sdd/specs/piloted-mode-mvp.md)) and, with hooks removed, no other
+> way to appear in the app either — it has no representation in LiveAgentsView until a
+> driver adapter is built for it. Not dropped as a target provider, just not usable yet.
+
+Known constraint: Cursor's piloted adapter auto-approves every tool call (`--force`/
+`--yolo`) — its CLI has no live permission-approval channel, confirmed in
+[piloted-mode-mvp](sdd/specs/piloted-mode-mvp.md).
 
 ### Attention
 

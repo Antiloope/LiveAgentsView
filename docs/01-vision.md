@@ -56,8 +56,17 @@ layer may come later.
 
 ### 4. Do not replace existing tools
 
-The user keeps using Claude Code, Codex and Cursor. LiveAgentsView is the layer above
-them, and "open in the terminal" is a first-class feature, not a fallback.
+LiveAgentsView drives the real Claude Code, Codex and Cursor CLIs as subprocesses rather
+than reimplementing them — no rebuilt plan mode, autocomplete, slash commands or diff
+review, and no falling behind every upstream release.
+
+> **2026-09-02:** until this point, that also meant tracking sessions launched natively
+> outside LiveAgentsView (read-only, via hooks), with "open in the terminal" as a
+> first-class fallback for them. That class is gone — see
+> [03-decisions.md](03-decisions.md) 2026-09-02 "Adopted mode and hooks ingestion are
+> removed entirely; piloted-only posture". Every session shown is one LiveAgentsView
+> launched itself; there is no fallback for sessions started elsewhere because those are
+> no longer tracked at all.
 
 ### 5. Glanceable
 

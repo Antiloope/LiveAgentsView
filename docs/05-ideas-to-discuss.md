@@ -81,6 +81,17 @@ session that LiveAgentsView owns, so that "open in the terminal" can attach to t
 same live session instead of resuming a new one. Claude Code already has `--worktree` and
 `--tmux` natively, which should be reused rather than reimplemented.
 
+**2026-09-02:** live-tested — tmux (and Claude Code's own `--bg`/Cursor's `agent
+persist`) cannot carry the headless `-p`/`stream-json` driver protocol piloted mode
+depends on; all three are built for a human re-attaching to an interactive terminal, not
+a second machine-readable channel. See
+[03-decisions.md](03-decisions.md) 2026-09-02 "No CLI-native background/persistent-
+session feature fits piloted mode". Restart continuity is being pursued instead via a
+supervisor LiveAgentsView builds itself —
+[piloted-only-mode](sdd/specs/piloted-only-mode.md).
+This idea's narrower proposal — a human attaching a real terminal to a piloted
+session — is untouched by that finding and stays open/unagreed.
+
 **Status:** unagreed
 
 ## IDEA-07 — `lav version`
@@ -100,6 +111,13 @@ service the user does not restart on every code change.
 unit, remove the plist/unit file) and a way to remove the hooks/notify entries from
 `~/.claude/settings.json`, `~/.codex/config.toml` and `~/.cursor/hooks.json` without hand
 editing them. No destructive action should require reading Go source to reverse.
+
+**2026-09-02:** the hooks/notify-removal half is being built as part of
+[piloted-only-mode](sdd/specs/piloted-only-mode.md), which removes `lav init` and
+`internal/installer` entirely and uninstalls the hooks they already wrote to this real
+machine's configs — see [03-decisions.md](03-decisions.md) 2026-09-02. The
+`lav service uninstall` half (launchd/systemd unit teardown) is unrelated and stays
+unagreed/open.
 
 **Status:** unagreed
 

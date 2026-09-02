@@ -35,3 +35,11 @@ venv/
 
 # Tool outputs (regenerated automatically)
 *.tsbuildinfo
+
+# Impeccable: machine-local overrides and ephemeral round state
+# (design decisions live in .impeccable/surfaces/, .impeccable/design.json,
+# and .impeccable/config.json, which are committed)
+.impeccable/config.local.json
+.impeccable/questions/
+.impeccable/build/
+.impeccable/mocks/

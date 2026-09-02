@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-02T00:00:00Z",
+  "title": "Design System: LiveAgentsView",
+  "extensions": {
+    "colorMeta": {
+      "gold": { "role": "primary", "displayName": "Camp Gold", "canonical": "#e0b84a", "tonalRamp": ["#3a2c10", "#5c451a", "#7e5e24", "#a1782e", "#c3923b", "#e0b84a", "#eec872", "#f6dfa5"] },
+      "wood": { "role": "secondary", "displayName": "Wood", "canonical": "#6b4a2a", "tonalRamp": ["#1c1409", "#241708", "#3a2716", "#513320", "#6b4a2a", "#8a6338", "#9c7443", "#c2a179"] },
+      "parchment": { "role": "secondary", "displayName": "Parchment", "canonical": "#ede0c0", "tonalRamp": ["#4a4229", "#6b5f3c", "#8c7d51", "#ad9b6b", "#d9c99c", "#ede0c0", "#f4ecd8", "#faf6ec"] },
+      "sky-top": { "role": "tertiary", "displayName": "Night Sky", "canonical": "#180f28", "tonalRamp": ["#0c0715", "#180f28", "#241a3d", "#2c1f45", "#3d2c5e", "#524080", "#7460a3", "#9f8fc4"] },
+      "ground": { "role": "tertiary", "displayName": "Camp Ground", "canonical": "#26361f", "tonalRamp": ["#0e1509", "#182412", "#1f2e18", "#26361f", "#354a2b", "#476338", "#5c7d48", "#78995f"] },
+      "ink-invert": { "role": "neutral", "displayName": "Parchment Ink (dark bg text)", "canonical": "#f4ecd8", "tonalRamp": ["#5a4a36", "#7a6547", "#9a8259", "#bba070", "#d9c99c", "#ede0c0", "#f4ecd8", "#faf6ec"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#2a1f14", "tonalRamp": ["#0f0b07", "#1a130c", "#2a1f14", "#3d2e1e", "#5a4a36", "#7a6547", "#a4906f", "#c9baa0"] },
+      "hp": { "role": "state", "displayName": "HP Red", "canonical": "#c23b3b", "tonalRamp": ["#2a0d0d", "#4a1c1c", "#6b2828", "#8f3232", "#c23b3b", "#d66565", "#e59090", "#f2c2c2"] },
+      "mp": { "role": "state", "displayName": "MP Blue", "canonical": "#3f7fc9", "tonalRamp": ["#101f33", "#1c2f4a", "#284566", "#325e8c", "#3f7fc9", "#6a9fd8", "#9cc0e6", "#c9dff2"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Pixel Display", "purpose": "App title only, topbar." },
+      "label": { "displayName": "Pixel Label", "purpose": "All short HUD chrome — headers, buttons, flags, state pills, provider names. Never body copy." },
+      "body": { "displayName": "Nunito Body", "purpose": "Chat transcript, details, hints, form fields — anything read at sentence length." },
+      "mono": { "displayName": "Tool Mono", "purpose": "Tool-call JSON payloads in the pilot chat transcript." }
+    },
+    "shadows": [
+      { "name": "sprite-ground", "value": "drop-shadow(0 3px 2px rgba(0,0,0,0.5))", "purpose": "Grounds flat SVG party sprites and drawer sprite with a hard offset shadow." },
+      { "name": "panel-drop", "value": "0 4px 0 rgba(0,0,0,0.35)", "purpose": "Hard offset under the topbar, pixel-art panel edge." },
+      { "name": "bevel-inset", "value": "inset 1px 1px 0 var(--gold-bright), inset -2px -2px 0 #a97f22", "purpose": "Raised beveled game-UI surface on pixel buttons and the modal." }
+    ],
+    "motion": [
+      { "name": "firewave", "value": "scaleY/scaleX pulse, 0.9s ease-in-out infinite", "purpose": "Campfire flame flicker." },
+      { "name": "status-bob", "value": "translateY(-3px), 1.6s ease-in-out infinite", "purpose": "Bobbing status icon above party sprites needing attention." },
+      { "name": "rune-glow-pulse", "value": "opacity/scaleX pulse, 2.4s ease-in-out infinite", "purpose": "Ambient glow ring beneath a party stand's state color." },
+      { "name": "drawer-slide", "value": "transform 0.22s ease", "purpose": "Session drawer slide-in/out." },
+      { "name": "reduced-motion-off", "value": "all animation/transition/transform disabled under prefers-reduced-motion: reduce", "purpose": "Accessibility fallback." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "760px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Gold beveled HUD button — recruit session, launch, send message.",
+      "html": "<button class=\"ds-btn-primary\">+ Recruit session</button>",
+      "css": ".ds-btn-primary { font-family: 'Pixelify Sans', sans-serif; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: #2a1f14; background: #e0b84a; border: 3px solid #3a2716; box-shadow: inset 1px 1px 0 #f3d27a, inset -2px -2px 0 #a97f22; padding: 0.55rem 1.1rem; clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px); cursor: pointer; } .ds-btn-primary:hover { background: #f3d27a; } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid #f3d27a; outline-offset: 2px; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.55; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Plain-bordered ghost button — cancel, interrupt, resume, copy path.",
+      "html": "<button class=\"ds-btn-secondary\">Interrupt</button>",
+      "css": ".ds-btn-secondary { font-family: 'Nunito', sans-serif; font-size: 0.8rem; padding: 0.4rem 0.75rem; border: 2px solid #5a4a36; background: #d9c99c; color: #2a1f14; cursor: pointer; } .ds-btn-secondary:hover { background: #ede0c0; } .ds-btn-secondary:focus-visible { outline: 2px solid #f3d27a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Modal/compose field — warm off-white on square 2px border.",
+      "html": "<input class=\"ds-input\" placeholder=\"/path/to/an/existing/repo\" />",
+      "css": ".ds-input { border: 2px solid #5a4a36; padding: 0.5rem 0.6rem; font-family: 'Nunito', sans-serif; font-size: 0.9rem; background: #fff8e8; color: #2a1f14; } .ds-input:focus-visible { outline: 2px solid #f3d27a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Quest Token",
+      "kind": "card",
+      "refersTo": "quest-token",
+      "description": "Sidebar mini-card for a working session — sprite, provider, repo path, HP/MP bars.",
+      "html": "<button class=\"ds-quest-token\"><div class=\"ds-mini-provider\">Claude Code</div><div class=\"ds-mini-repo\">livein/livein-web</div><div class=\"ds-bar-track\"><div class=\"ds-bar-fill\" style=\"width:64%\"></div></div></button>",
+      "css": ".ds-quest-token { display: flex; flex-direction: column; gap: 4px; width: 100%; background: rgba(255,255,255,0.04); border: 2px solid #3a2716; padding: 0.45rem; color: #f4ecd8; text-align: left; cursor: pointer; } .ds-quest-token:hover { background: rgba(255,255,255,0.09); border-color: #e0b84a; } .ds-mini-provider { font-family: 'Pixelify Sans', sans-serif; font-size: 0.62rem; color: #f3d27a; } .ds-mini-repo { font-size: 0.7rem; color: #d9c99c; } .ds-bar-track { height: 4px; border: 2px solid #3a2716; background: #4a1c1c; } .ds-bar-fill { height: 100%; background: #c23b3b; }"
+    },
+    {
+      "name": "Party Stand",
+      "kind": "custom",
+      "refersTo": "stand",
+      "description": "Camp character card — provider flag, state glow, pixel sprite, HP/MP bars. Selection/attention shown via the flag border, not the container.",
+      "html": "<button class=\"ds-stand\"><div class=\"ds-stand-flag\">Codex</div><div class=\"ds-rune-glow\"></div><div class=\"ds-sprite-wrap\"><svg viewBox=\"0 0 96 128\" width=\"56\" height=\"74\"><rect x=\"32\" y=\"16\" width=\"32\" height=\"32\" fill=\"#e8b088\"/><rect x=\"24\" y=\"48\" width=\"48\" height=\"40\" fill=\"#2f4d7a\"/></svg></div><div class=\"ds-bars\"><div class=\"ds-bar-track\"><div class=\"ds-bar-fill\" style=\"width:48%\"></div></div><div class=\"ds-bar-track ds-mp\"><div class=\"ds-bar-fill ds-mp\" style=\"width:70%\"></div></div></div></button>",
+      "css": ".ds-stand { position: relative; display: flex; flex-direction: column; align-items: center; background: none; border: none; padding: 0; color: inherit; cursor: pointer; } .ds-stand-flag { font-family: 'Pixelify Sans', sans-serif; font-size: 0.62rem; font-weight: 600; padding: 3px 8px; border: 2px solid #3a2716; background: #ede0c0; color: #2a1f14; clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%, 0 3px); } .ds-stand:hover .ds-stand-flag, .ds-stand:focus-visible .ds-stand-flag { border-color: #e0b84a; box-shadow: 0 0 0 2px rgba(224,184,74,0.35); } .ds-rune-glow { width: 56px; height: 15px; border-radius: 50%; margin-top: -6px; opacity: 0.85; filter: blur(1px); background: radial-gradient(ellipse at center, #f0a83c, transparent 70%); } .ds-sprite-wrap { width: 56px; height: 74px; margin-top: 4px; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.5)); } .ds-sprite-wrap svg { image-rendering: pixelated; } .ds-bars { width: 70px; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; } .ds-bar-track { height: 6px; border: 2px solid #3a2716; background: #4a1c1c; } .ds-bar-track.ds-mp { background: #1c2f4a; } .ds-bar-fill { height: 100%; background: #c23b3b; } .ds-bar-fill.ds-mp { background: #3f7fc9; }"
+    },
+    {
+      "name": "Session Drawer Header",
+      "kind": "custom",
+      "refersTo": "drawer-body",
+      "description": "Resizable side panel header — sprite, name, repo, state pill. Never covers the camp behind it.",
+      "html": "<div class=\"ds-drawer-header\"><div class=\"ds-drawer-sprite\"><svg viewBox=\"0 0 96 128\" width=\"40\" height=\"54\"><rect x=\"32\" y=\"16\" width=\"32\" height=\"32\" fill=\"#e8b088\"/></svg></div><div><div class=\"ds-drawer-name\">Claude Code — livein/livein-web</div><div class=\"ds-drawer-repo\">main</div><div class=\"ds-state-pill\" style=\"background:#f0a83c;color:#2a1f14\">Waiting</div></div></div>",
+      "css": ".ds-drawer-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; background: #6b4a2a; border-bottom: 4px solid #3a2716; } .ds-drawer-name { font-family: 'Pixelify Sans', sans-serif; color: #f3d27a; font-size: 0.85rem; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); } .ds-drawer-repo { font-size: 0.75rem; color: #d9c99c; font-weight: 600; margin-top: 2px; } .ds-state-pill { font-family: 'Pixelify Sans', sans-serif; font-size: 0.62rem; padding: 2px 8px; border: 2px solid #3a2716; display: inline-block; margin-top: 4px; }"
+    },
+    {
+      "name": "Chat Bubble",
+      "kind": "custom",
+      "refersTo": "bubble",
+      "description": "Transcript entry in the pilot chat — user/assistant/tool/permission/error/system variants, always on parchment.",
+      "html": "<div class=\"ds-bubble ds-user\"><span class=\"ds-bubble-label\">You</span><p>Fix the flaky test in session.go</p></div>",
+      "css": ".ds-bubble { padding: 0.6rem 0.75rem; border: 2px solid #5a4a36; background: #fff8e8; max-width: 92%; font-size: 0.9rem; line-height: 1.5; } .ds-bubble p { margin: 0; } .ds-bubble-label { display: block; font-size: 0.68rem; font-weight: 700; color: #5a4a36; margin-bottom: 0.2rem; } .ds-bubble.ds-user { margin-left: auto; background: #e9dcbd; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Attention Campfire",
+    "overview": "LiveAgentsView renders its agent roster as a D&D party at camp, not a status table. A session that is `working` stands out on a quest, off in a side sidebar as a compact token; every other state — waiting, blocked, failed, done, idle — pulls that agent back to camp, where it stands as a full pixel-art character lit by a shared campfire. Urgency reads as literal proximity to the fire: the front row (waiting/blocked/failed) sits bright and animated near the flame; the back row (done/idle) is dimmed and desaturated further back. Nothing is a badge count. Everything is staging. The whole surface is 16-bit medieval pixel art — code-drawn SVG rects on an 8px grid, no image generation, no stock icon packs — paired with modern, legible type for anything actually read (chat bubbles, session details, form labels). A dedicated pixel display face is reserved strictly for HUD chrome: titles, state labels, buttons, flags. It never appears in body copy or transcript text, where legibility at length matters more than the bit-art bit. The visual system commits to the game-HUD bit fully rather than treating it as decoration on an admin list: wood-and-parchment beveled panels with clipped corners, a torch-lit gradient sky, HP/mana bars under every character. Those bars are an explicit, disclosed placeholder — seeded-random per session id, not real telemetry, because no token-consumption field exists on the Session type yet. The system does not pretend otherwise anywhere in the UI or in this document.",
+    "keyCharacteristics": [
+      "A camp scene (fire, tents, banner, treeline) as the primary layout device, not a card grid",
+      "Beveled parchment-and-wood chrome with clipped (not rounded) corners throughout",
+      "Pixel display face for HUD labels only; a legible humanist sans for everything read at length",
+      "Front-row/back-row brightness as the sole urgency signal — no numeric badges",
+      "Drawn pixel-block icons and flat vector \"runes\" in place of any unicode/emoji glyph"
+    ],
+    "rules": [
+      { "name": "The Firelight Proximity Rule", "body": "Urgency is never a number or a badge — it is literal brightness and position. The front row near the campfire is full-color and animated (glow pulse, hovering status icon); the back row is filter: brightness(0.8) saturate(0.85) and sits further from the flame. If a new state needs to signal \"needs you,\" it joins the front row; it does not get a red dot.", "section": "colors" },
+      { "name": "The Parchment-Is-Reading Rule", "body": "Dark violet/wood surfaces are for the camp scene and its chrome. The moment content needs to be read at length — chat, session details, forms — the surface switches to parchment (#ede0c0) with dark ink text. This is the one legibility escape hatch in an otherwise dark, decorative palette.", "section": "colors" },
+      { "name": "The Chrome-Only Pixel Rule", "body": "Pixelify Sans is applied only via the .pixel-face class to fixed, short UI strings — titles, labels, button text, state pills. It never appears on body copy, transcript bubbles, form input values, or any text whose length isn't controlled by the design (that's Nunito's job). This is the load-bearing accessibility decision that keeps the retro face from fighting legibility.", "section": "typography" },
+      { "name": "The Hard-Edge Rule", "body": "Where the system needs depth, offsets are crisp integers (3px 2px, 0 4px 0) with zero or minimal blur, never a soft diffuse shadow. Soft ambient shadows would read as flat-modern UI, not pixel-art HUD.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do confine Pixelify Sans to .pixel-face chrome strings only (titles, labels, buttons, state pills); use Nunito for anything read at length.",
+      "Do use the clipped octagonal bevel (clip-path polygon) for wood/parchment HUD chrome — buttons, frames, the stand-flag banner.",
+      "Do signal urgency through front-row/back-row position and brightness (filter: brightness(0.8) saturate(0.85)), never through a badge, counter, or dot.",
+      "Do disclose HP/MP bars as placeholder wherever they appear or are discussed — they are seeded-random per session id, not derived from real token/context data.",
+      "Do keep dark violet/wood surfaces for the camp scene and switch to parchment the moment content must be read at length (chat, details, forms).",
+      "Do draw every icon (provider runes, status glyphs) as flat SVG shapes or 2-unit pixel-block cells in the same stroke language as the party sprites — never a unicode/emoji glyph or an external icon font."
+    ],
+    "donts": [
+      "Don't apply Pixelify Sans to body copy, transcript text, or any string whose length isn't controlled by the design — it breaks legibility at length.",
+      "Don't round corners on cards, inputs, the drawer, or the modal; square corners (or the specific clipped-bevel cut) are the only two shapes in this system.",
+      "Don't use soft, blurred ambient shadows; depth reads through hard-offset drop-shadows and inset bevels only.",
+      "Don't let the resizable session drawer cover or hide the rest of the party — it is a side panel by design, not a route or full-screen takeover.",
+      "Don't treat the HP/mana bars as, or extend them to look like, real telemetry until a token-consumption field actually exists on the Session type."
+    ]
+  }
+}

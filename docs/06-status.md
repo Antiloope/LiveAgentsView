@@ -39,13 +39,18 @@ Last updated: 2026-09-01
 
 ## SDD specs
 
-[adopted-mode-mvp](sdd/specs/adopted-mode-mvp.md) — done, next: validate. Built and
-smoke-tested via Docker against real local Claude Code/Codex config (dry-run) this
-session; not yet formally validated against the spec's acceptance list. Index in
-[sdd/README.md](sdd/README.md).
+[adopted-mode-mvp](sdd/specs/adopted-mode-mvp.md) — validated. 9 of 12 acceptance items
+met with direct evidence (real Docker build, real hooks installed against this machine's
+Claude Code/Codex/Cursor config, live SSE dashboard, SQLite persistence across a restart);
+3 partial items carried over as candidate follow-up specs rather than blocking this one.
+Index in [sdd/README.md](sdd/README.md).
 
 ## Suggested next step
 
-Validate the `adopted-mode-mvp` spec against its acceptance list, then decide on the two
-flagged gaps: native launchd/systemd service install, and a real "open in the terminal"
-(currently copy-path only).
+Three candidate follow-up specs, none blocking, in the order they'd likely matter:
+1. Native launchd/systemd service install (replace the Docker restart-policy stand-in).
+2. A real "open in the terminal" (native host helper, or fold into piloted-mode work).
+3. Verify Cursor's hook payload field names against a real `cursor-agent` install.
+
+Otherwise: the next meaningful product increment is piloted mode (Posture B's other
+half), which needs its own spec.

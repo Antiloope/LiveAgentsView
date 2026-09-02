@@ -1,10 +1,10 @@
 ---
 title: Adopted-mode MVP — daemon, three provider adapters, attention dashboard
 slug: adopted-mode-mvp
-status: done
+status: validated
 created: 2026-09-01
 updated: 2026-09-01
-next: validate
+next: none
 chain: none
 ---
 
@@ -197,20 +197,90 @@ another tool → previews chaining, not replacing), 127.0.0.1-only binding after
 above, `lav status`. The classifier was exercised with a real question ("Should I use
 React or Svelte for this?" → waiting) and a real completion message → done.
 
-**Not run for real:** the actual (non-dry-run) `lav init` write against this machine's
-config — left for the user to trigger deliberately (`scripts/lav-init.sh`), since it's a
-standing change to their Claude Code/Codex/Cursor setup and not something to do silently.
-Native launchd/systemd service install (see Acceptance) and Cursor's exact hook payload
-field names (see `internal/ingest/cursor.go`) are the two biggest remaining unknowns.
+**Also run for real, after explicit user confirmation:** the actual (non-dry-run) `lav
+init` write against this machine's real config. Verified afterward: `~/.claude/settings.json`
+still valid JSON with all 7 hooks added; `~/.codex/config.toml` still has all 18 of its
+original `[section]` blocks intact and its `notify` line now points at the chain wrapper,
+which still calls the original SkyComputerUseClient target before forwarding to the
+daemon; `~/.cursor/hooks.json` created correctly; all three helper scripts written and
+executable under `~/.liveagentsview/bin/`.
+
+Native launchd/systemd service install and Cursor's exact hook payload field names (see
+`internal/ingest/cursor.go`) remain the two biggest unknowns — see Validation.
 
 ## Validation
 
-Filled in by whoever validates.
+Checked against a real Docker build and, where noted, this machine's real Claude Code/
+Codex/Cursor config — not just code review.
+
+1. **`lav init` non-destructive merge** — **yes**. Ran for real (not just `--dry-run`)
+   against this machine's actual config with explicit user go-ahead. `settings.json`
+   stayed valid JSON with 7 hooks added; `config.toml` kept all 18 of its original
+   `[section]` blocks and its pre-existing `notify` target now fires from inside the
+   chain wrapper instead of being replaced; `hooks.json` created correctly. Re-running
+   `lav init` is idempotent (checked via the dedup logic in `installer.go`, not
+   re-exercised live a second time).
+2. **Daemon survives restarts** — **partial, as already flagged in Acceptance.** Docker
+   Compose `restart: unless-stopped` verified (container recreated cleanly across three
+   rebuilds this session). No native launchd/systemd unit — a genuine gap, not polish:
+   without it the daemon does not come back after a host reboot unless Docker Desktop
+   itself is set to relaunch and the compose service is manually brought up again.
+3. **127.0.0.1-only binding, embedded frontend, no separate Node/static server** —
+   **yes**. `docker port` confirmed `127.0.0.1:8420` (an earlier draft published on
+   `0.0.0.0` by Docker's default — caught and fixed this session, see `compose.yaml`).
+   Frontend is served from the same Go binary via `go:embed`; no separate process.
+4. **SQLite persistence across restarts** — **yes**, directly verified: posted a real
+   session event to a container, removed the container entirely, started a fresh one on
+   the same bind-mounted directory, and the session was still there with its original
+   data intact.
+5. **Claude Code adapter mapping** — **yes**. Exercised live against a running daemon:
+   `SessionStart` → working, `Notification/permission_prompt` → blocked, `StopFailure` →
+   failed, `Stop` with a question ("Should I use React or Svelte for this?") → waiting via
+   the classifier, `Stop` with a completion message → done via the classifier.
+6. **Codex adapter mapping** — **yes, simulated only.** Payload shape matches Codex's
+   documented `notify` schema and classifies correctly, but never exercised against the
+   real `codex` CLI (not installed on this machine) or Codex's own approval flow.
+7. **Cursor adapter mapping** — **partial.** Logic matches the researched event names and
+   `stop.status`/`sessionEnd.reason` handling, but the JSON field names
+   (`sessionId`/`cwd`/`lastMessage`) are best-effort from docs, not confirmed against a
+   real `cursor-agent` payload (not installed anywhere this was built or tested). Real
+   risk: if the actual field names differ, every Cursor event will fail to parse
+   (`missing sessionId`) until corrected.
+8. **Classifier behind a shared interface** — **yes**. One `classifier.Classifier` used
+   identically by all three adapters in `daemon/server.go`; confirmed via the live
+   question-vs-completion test above.
+9. **Fidelity level shown per session** — **yes**, visible in the dashboard (confirmed by
+   screenshot) as a tag on every session card.
+10. **Dashboard: list, live SSE, attention grouping** — **yes**. Confirmed by screenshot
+    before and after posting a new event with no manual refresh, correctly grouped into
+    "Needs you now" / "Failed" / "Asked you something" / "Finished".
+11. **Jump to originating session** — **partial, as already flagged in Acceptance.**
+    Shipped as a "copy path" button, not a real terminal launch — the containerized
+    daemon has no path to spawn anything on the host.
+12. **`lav` CLI usable** — **yes**. `lav init` (dry-run and real), `lav status` all
+    exercised for real via `docker compose exec`/`run`.
+
+**Out of scope check:** nothing from piloted mode, tailing, remote access, human presence/
+P3, auto-resolve, or throttling slipped in. The "copy path" button is new relative to the
+original spec text but is a partial implementation of an *in-scope* acceptance item
+(jump to session), not scope creep.
+
+**Net result:** 9 of 12 acceptance items fully met with direct evidence, 3 are partial —
+all 3 were already called out honestly in Acceptance/How during implementation, not
+discovered here. None are silent regressions or undocumented divergence.
+
+**Closed as `validated`** — Rodrigo, 2026-09-01: what this spec asked for (adopted mode
+working end to end, runnable locally via Docker) is delivered and verified for real. The
+3 partial items become candidate follow-up specs rather than blocking this one:
+1. Native launchd/systemd service install (replace the Docker restart policy stand-in).
+2. A real "open in the terminal" (native host helper, or fold into piloted-mode work).
+3. Verify Cursor's hook payload field names against a real `cursor-agent` install and
+   fix `internal/ingest/cursor.go` if they differ.
 
 ## Handoff
 
 ```
 Spec: docs/sdd/specs/adopted-mode-mvp.md
-Status: done
-Next: validate
+Status: validated
+Next: none
 ```

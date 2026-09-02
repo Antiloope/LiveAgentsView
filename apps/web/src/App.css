@@ -1,0 +1,187 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0b0e14;
+  --fg: #e6e6e6;
+  --muted: #9aa4b2;
+  --card: #151a23;
+  --border: #232a36;
+  --blocked: #e5484d;
+  --failed: #eb6f92;
+  --waiting: #f5b83d;
+  --working: #4c9aff;
+  --done: #3fb950;
+  --idle: #6e7681;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.subtitle,
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.banner {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.banner-error {
+  background: rgba(229, 72, 77, 0.15);
+  border: 1px solid var(--blocked);
+}
+
+.empty {
+  color: var(--muted);
+  padding: 2rem 0;
+}
+
+.empty code {
+  background: var(--card);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.group {
+  margin-bottom: 2rem;
+}
+
+.group h2 {
+  font-size: 1rem;
+  margin: 0 0 0.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.count {
+  font-size: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  color: var(--muted);
+}
+
+.group-blocked h2 {
+  color: var(--blocked);
+}
+.group-failed h2 {
+  color: var(--failed);
+}
+.group-waiting h2 {
+  color: var(--waiting);
+}
+.group-working h2 {
+  color: var(--working);
+}
+.group-done h2 {
+  color: var(--done);
+}
+.group-idle h2 {
+  color: var(--idle);
+}
+
+.session-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.session-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.provider {
+  font-weight: 600;
+}
+
+.branch,
+.worktree,
+.fidelity {
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
+
+.last-message {
+  margin: 0.5rem 0 0;
+  color: var(--fg);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.session-meta {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.75rem;
+  gap: 1rem;
+}
+
+.session-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-path {
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.copy-path:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}

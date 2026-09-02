@@ -14,4 +14,8 @@ There is no shared `packages/`: common pieces live in `scripts/`, `docs/`, and
 
 ## Status
 
-Empty as of 2026-09-01. The first app depends on defining vision and scope.
+- **`lav`** — the daemon and CLI. See [lav/README.md](lav/README.md).
+- **`web`** — the React + Vite dashboard, embedded into `lav`'s binary. Not
+  run standalone in production; `npm run dev` works for local frontend-only
+  iteration if you have Node, but `scripts/dev-up.sh` (Docker) is the
+  supported path.

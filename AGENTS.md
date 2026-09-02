@@ -28,10 +28,22 @@ Details in [docs/sdd/README.md](docs/sdd/README.md).
 ## Code rules
 
 **Nothing is run by hand.** Everything goes through `scripts/` once they exist.
-The only thing installed on the machine is Docker. New commands become scripts.
+The only thing installed on the machine to develop and test LiveAgentsView itself is
+Docker. New commands become scripts. This does not apply to the shipped binary, which
+runs on the host by design — see the
+[2026-09-01 Docker decision](docs/03-decisions.md).
 
 **Writing code does not close a definition.** A human maintainer does that, and only
 then does it land in the decision log. Something being built does not make it decided.
+
+**Comments and READMEs describe the code as it stands, nothing else.** Add a comment
+only where the code is not self-explanatory (good naming beats a comment). When one is
+needed, it explains what the code does now — never what it will do after some future
+change, and never what it used to do. Do not cite `docs/sdd/`, `docs/03-decisions.md`,
+or any other definition document as the explanation; state the reasoning directly.
+READMEs under `apps/` and `scripts/` describe what that piece of the project does
+today. Plans, history, and rationale that belong in a document already have one —
+`docs/sdd/specs/` for implementation plans, `docs/03-decisions.md` for decisions.
 
 ## Most important rule: do not mix decided with proposed
 

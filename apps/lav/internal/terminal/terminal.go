@@ -46,8 +46,9 @@ func Open(dir string) error {
 	}
 }
 
-// openLinux is best-effort and not live-verified (built and reviewed on
-// macOS) — see docs/sdd/specs/native-host-runtime.md Validation.
+// openLinux is best-effort and not live-verified: written and reviewed on
+// macOS, with no Linux machine available to confirm a terminal actually
+// opens.
 func openLinux(dir string) error {
 	if term := os.Getenv("TERMINAL"); term != "" {
 		cmd := exec.Command(term)

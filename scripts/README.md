@@ -19,5 +19,8 @@ typed from memory, and no dependencies installed on the host beyond Docker.
 - `lav-status.sh` — list known sessions from the CLI, without opening the
   dashboard. Talks to `dev-up.sh`'s container; against the native service use
   `~/.liveagentsview/bin/lav status` directly.
+- `check-doc-citations.sh` — fails if a comment in tracked source cites a
+  `docs/` definition or spec path as its reasoning (AGENTS.md: state the
+  reasoning directly instead). Run before committing code changes.
 
 See [apps/lav/README.md](../apps/lav/README.md) for what the daemon does.

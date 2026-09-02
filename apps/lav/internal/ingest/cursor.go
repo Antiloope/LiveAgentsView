@@ -8,15 +8,11 @@ import (
 )
 
 // cursorHookPayload's field names are confirmed for sessionStart/sessionEnd
-// against a real `agent` (a symlink to `cursor-agent`, confirmed via `ls -la
-// $(which agent)`) install, version 2026.08.31-4057e58, on 2026-09-02 — see
-// docs/sdd/specs/native-host-runtime.md Validation. `stop` and
-// `postToolUseFailure` did not fire in that session (a read-only `--mode
-// ask` run never reaches a tool-using turn) and stay best-effort: Status is
-// a documentation-era guess, FinalStatus is the sibling field confirmed on
-// sessionEnd, checked first since Cursor's real payloads are snake_case
-// throughout and a shared field name across event types is plausible but
-// unconfirmed for `stop` specifically.
+// against a real cursor-agent hook payload. stop and postToolUseFailure
+// never fired during that verification (a read-only run never reaches a
+// tool-using turn), so FinalStatus/Status/LastMessage for those two events
+// are still guesses — checked in snake_case, matching every field that is
+// confirmed, rather than the previous camelCase guess.
 type cursorHookPayload struct {
 	SessionID      string   `json:"session_id"`
 	WorkspaceRoots []string `json:"workspace_roots"`

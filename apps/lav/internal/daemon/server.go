@@ -17,6 +17,7 @@ import (
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/ingest"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/terminal"
 )
 
 const maxHookBodyBytes = 1 << 20 // 1 MiB is generous for a hook payload
@@ -53,6 +54,7 @@ func (s *Server) routes(webFS fs.FS) {
 
 	s.mux.HandleFunc("/api/sessions", s.handleListSessions)
 	s.mux.HandleFunc("/api/events/stream", s.hub.handle)
+	s.mux.HandleFunc("/api/open-terminal", s.handleOpenTerminal)
 
 	s.mux.Handle("/", http.FileServer(http.FS(webFS)))
 }
@@ -146,6 +148,32 @@ func (s *Server) handleHook(provider model.Provider) http.HandlerFunc {
 		s.hub.broadcast(sess)
 		w.WriteHeader(http.StatusAccepted)
 	}
+}
+
+// handleOpenTerminal spawns a terminal window at the given cwd. Only works
+// when this process runs natively on the host — see internal/terminal.
+func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Cwd string `json:"cwd"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&body); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if body.Cwd == "" {
+		http.Error(w, "cwd is required", http.StatusBadRequest)
+		return
+	}
+	if err := terminal.Open(body.Cwd); err != nil {
+		log.Printf("open terminal at %s: %v", body.Cwd, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {

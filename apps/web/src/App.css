@@ -170,7 +170,8 @@ body {
   white-space: nowrap;
 }
 
-.copy-path {
+.copy-path,
+.open-terminal {
   flex: 0 0 auto;
   background: transparent;
   color: var(--muted);
@@ -181,7 +182,8 @@ body {
   cursor: pointer;
 }
 
-.copy-path:hover {
+.copy-path:hover,
+.open-terminal:hover {
   color: var(--fg);
   border-color: var(--muted);
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import type { Session, State } from './types'
-import { fetchSessions, subscribeToSessions } from './api'
+import { fetchSessions, subscribeToSessions, openTerminal } from './api'
 
 // Grouping and order follow attention priority: BLOCKED and FAILED surface
 // loudly, DONE is grouped and quiet.
@@ -88,6 +88,7 @@ export default function App() {
                   {s.last_message && <p className="last-message">{s.last_message}</p>}
                   <div className="session-meta">
                     <span title={s.cwd}>{s.cwd}</span>
+                    <OpenTerminalButton path={s.cwd} />
                     <CopyPathButton path={s.cwd} />
                     <time dateTime={s.updated_at}>{new Date(s.updated_at).toLocaleString()}</time>
                   </div>
@@ -100,10 +101,31 @@ export default function App() {
   )
 }
 
-// Opening a terminal at the session's path would need either a native
-// helper on the host or the ability to spawn a process there — the daemon
-// runs in a container and cannot spawn anything on the host. Copying the
-// path is the available alternative.
+// Asks the daemon to spawn a terminal at path. Only works when the daemon
+// runs natively on the host (scripts/lav-service-install.sh), not via
+// scripts/dev-up.sh's containerized daemon — the request fails there since
+// the container has no terminal to open. CopyPathButton stays as a
+// fallback for that case.
+function OpenTerminalButton({ path }: { path: string }) {
+  const [failed, setFailed] = useState(false)
+
+  const open = useCallback(() => {
+    openTerminal(path)
+      .then(() => setFailed(false))
+      .catch(() => {
+        setFailed(true)
+        setTimeout(() => setFailed(false), 2000)
+      })
+  }, [path])
+
+  if (!path) return null
+  return (
+    <button type="button" className="open-terminal" onClick={open} title="Open in terminal">
+      {failed ? 'Could not open' : 'Open terminal'}
+    </button>
+  )
+}
+
 function CopyPathButton({ path }: { path: string }) {
   const [copied, setCopied] = useState(false)
 

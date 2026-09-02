@@ -23,6 +23,18 @@ COPY apps/lav ./
 COPY --from=frontend-build /app/dist ./web/static
 RUN CGO_ENABLED=0 go build -o /out/lav ./cmd/lav
 
+# --- native binary (cross-compiled for the host OS/arch; extracted with
+# `docker cp`, not run as a container — see scripts/lav-service-install.sh)
+FROM golang:1.25-alpine AS native-binary
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+WORKDIR /src/apps/lav
+COPY apps/lav/go.mod apps/lav/go.sum ./
+RUN go mod download
+COPY apps/lav ./
+COPY --from=frontend-build /app/dist ./web/static
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/lav ./cmd/lav
+
 # --- runtime --------------------------------------------------------------
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates

@@ -1,22 +1,33 @@
-# Shared services — production images / local base.
-# Development overrides in compose.dev.yaml
+# LiveAgentsView daemon. Docker is for developing/running this locally
+# without installing Go or Node — see docs/03-decisions.md 2026-09-01 and
+# apps/lav/README.md for why the daemon itself is fine to run in a
+# container even though the *shipped, piloted-mode* binary is not.
+#
+# Development overrides (host config bind mounts, needed for `lav init`) are
+# in compose.dev.yaml.
+#
+#   docker compose up --build                        # just run the daemon
+#   docker compose -f compose.yaml -f compose.dev.yaml run --rm lav lav init
+#
+# Prefer scripts/dev-up.sh and scripts/lav-init.sh over typing these by hand.
 
 services:
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-liveagents}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-liveagents}
-      POSTGRES_DB: ${POSTGRES_DB:-liveagents}
+  lav:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Bound to loopback only, per the decided boundary (docs/02-scope.md,
+      # "Explicit boundaries": a server that can approve permissions is RCE
+      # if exposed — Docker's default port publish binds 0.0.0.0, which
+      # would violate that, so it is pinned to 127.0.0.1 explicitly here.
+      - "127.0.0.1:${LAV_PORT:-8420}:8420"
+    environment:
+      LAV_PORT: "8420"
+    restart: unless-stopped
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liveagents}"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-
-volumes:
-  pgdata:
+      # SQLite lives at ~/.liveagentsview on the host, per the stack
+      # decision — bind-mounted straight through rather than a Docker
+      # named volume, so it is inspectable/backup-able like any other
+      # local file and a future native (non-Docker) build reads the same data.
+      - ${HOME}/.liveagentsview:/data

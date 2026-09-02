@@ -21,7 +21,7 @@ Each step leaves a handoff block to paste into another agent.
 
 | Spec | Status | Next |
 |---|---|---|
-| [adopted-mode-mvp](specs/adopted-mode-mvp.md) | ready | implement |
+| [adopted-mode-mvp](specs/adopted-mode-mvp.md) | done | validate |
 
 Statuses: `draft` · `ready` · `in-progress` · `done` · `validated` · `abandoned`.
 

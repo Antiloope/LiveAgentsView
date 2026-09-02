@@ -1,10 +1,10 @@
 ---
 title: Adopted-mode MVP — daemon, three provider adapters, attention dashboard
 slug: adopted-mode-mvp
-status: ready
+status: done
 created: 2026-09-01
 updated: 2026-09-01
-next: implement
+next: validate
 chain: none
 ---
 
@@ -99,6 +99,12 @@ Notes for whoever implements:
   identical to WORKING from the adopted adapter's point of view until/unless a `notify`
   eventually fires. Surface the fidelity level per session in the UI (already decided,
   [02-scope.md](../../02-scope.md)) so this is visible, not silently wrong.
+- **Not implemented, on purpose:** timeout-based IDLE derivation ("no event for N
+  minutes"). It ties directly to the unagreed P3/"suspicious" row of IDEA-01 — deciding
+  a threshold is a product call, not an implementation detail. What ships instead: IDLE
+  only from the direct signals that already mean it (Claude Code `SessionEnd`, Cursor
+  `sessionEnd` without an error reason). A session sitting in WORKING/WAITING forever
+  with no further events just stays there in the UI rather than being demoted.
 - **Open verification, not a blocker:** confirm early whether `.cursor/hooks.json` fires
   for sessions launched natively from the Cursor IDE, or only for `cursor-agent`
   CLI-launched sessions (confirmed: at least `beforeShellExecution`, `afterShellExecution`,
@@ -114,9 +120,11 @@ Notes for whoever implements:
       change, and on confirmation merges LiveAgentsView's hooks/`notify` entry without
       deleting or overwriting any existing entry (in particular, Codex's existing
       `notify` program keeps firing after `lav init`).
-- [ ] The daemon runs as a user service (launchd on macOS at minimum; systemd if time
-      allows) started by `lav init`, survives terminal/dashboard closing, and restarts on
-      login.
+- [ ] The daemon stays running unattended and survives restarts. Implemented as a Docker
+      Compose service (`restart: unless-stopped`) rather than a native launchd/systemd
+      user service — see How. A native service is a real gap, not silently dropped: it
+      matters once this stops being a "validate it works" pass and needs to survive a
+      full host reboot without Docker Desktop being manually reopened.
 - [ ] The daemon binds only to `127.0.0.1` and embeds the built frontend — no separate
       Node process, no separate static file server.
 - [ ] SQLite at `~/.liveagentsview/` persists every session's identity (repo, worktree,
@@ -138,28 +146,62 @@ Notes for whoever implements:
       provider/state, updates live over SSE without a manual refresh, and surfaces an
       attention queue where BLOCKED and FAILED sessions are immediately visible and DONE
       sessions are grouped and unobtrusive.
-- [ ] From the dashboard, the user can jump to the originating session (open the terminal
-      / reveal the working directory) for any adopted session — "open in the terminal" as
-      a first-class action.
+- [ ] From the dashboard, the user can jump to the originating session. Implemented as a
+      "copy path" action, not a literal one-click terminal launch — the daemon runs
+      inside a container in this spec and cannot spawn anything on the host. A real "open
+      in the terminal" needs either a small native helper on the host or piloted-mode
+      infrastructure (out of scope here); copy-path is the honest interim.
 - [ ] `lav` is usable from the CLI (at minimum `lav init` and a way to check the daemon is
       running / see current sessions without opening the browser).
 
 ## How
 
-Left to whoever implements. Suggested shape, not binding:
+Built and verified against a real Docker build + the real local `~/.claude` and
+`~/.codex` config (Cursor and Codex adapters only verified with simulated payloads —
+`cursor-agent` and `codex` are not installed on this machine).
 
-- `apps/` gets the daemon (Go module) and the frontend (React+Vite) as two directories
-  under one `apps/lav/` or split `apps/daemon` + `apps/web`, embedded via `go:embed` at
-  build time into the daemon binary — confirm the exact layout against
-  [apps/README.md](../../../apps/README.md) rules before creating it.
-- Hook receivers: a local HTTP endpoint the hook scripts POST to, or a small helper binary
-  invoked by the hook config that forwards to the daemon over a local socket — either
-  works, pick whichever keeps `lav init`'s generated config simplest.
-- Start with the Cursor-IDE-vs-CLI hooks verification (see Event model notes) before
-  writing the Cursor adapter, since it decides the adapter's actual scope.
-- `scripts/` gets whatever is needed to build and run this locally per
-  [scripts/README.md](../../../scripts/README.md) (Docker for dev only, per the 2026-09-01
-  decision).
+**Layout:**
+- `apps/lav/` — Go module. `cmd/lav` (CLI: `serve`, `init`, `status`);
+  `internal/model` (canonical types); `internal/ingest` (one parser per provider →
+  `model.Signal`); `internal/classifier` (rules-based end-of-turn classifier);
+  `internal/store` (SQLite via `modernc.org/sqlite`, pure Go, no cgo); `internal/daemon`
+  (HTTP routes + SSE hub); `internal/installer` (`lav init`'s non-destructive hook merge);
+  `web` (`go:embed` of the built frontend into `web/static`, named `static` not `dist` to
+  avoid the repo-wide `.gitignore` rule for Node build output).
+- `apps/web/` — React + Vite dashboard, plain CSS, no UI library. Fetches
+  `GET /api/sessions` once, then live-updates from `GET /api/events/stream` (SSE).
+- Root `Dockerfile` — three stages: `node:22-alpine` builds `apps/web`, its `dist/` is
+  copied into `golang:1.25-alpine` at `apps/lav/web/static` before `go build`, final
+  image is `alpine:3.20` + the static binary. `go.mod`/`go.sum` are committed and pinned
+  (`go mod tidy` was run once against a real network, not hand-written) so the Docker
+  build uses `go mod download`, not a fresh resolve every time.
+- `compose.yaml` — the `lav` service only, published on `127.0.0.1:${LAV_PORT:-8420}`
+  **explicitly** (Docker's default port publish binds `0.0.0.0`, which would violate the
+  decided 127.0.0.1-only boundary — caught during testing, not obvious from the compose
+  file alone, worth remembering if anyone edits the `ports:` line later), `restart:
+  unless-stopped`, SQLite bind-mounted straight to the host's `~/.liveagentsview`.
+- `compose.dev.yaml` — adds bind mounts for `~/.claude`, `~/.codex`, `~/.cursor` (needed
+  only by `lav init`, not by `lav serve`) plus `LAV_HOST_HOME`/`LAV_HOME_HOST_PATH` so
+  hook commands `lav init` writes reference real host paths, not container-internal ones
+  — this indirection is the one genuinely non-obvious piece of the whole setup; see
+  `apps/lav/internal/installer/installer.go`'s `Options` doc comments before touching it.
+- `scripts/dev-up.sh`, `dev-down.sh`, `lav-init.sh [--dry-run]`, `lav-status.sh` — the
+  only supported entry points, per AGENTS.md ("nothing is run by hand").
+
+**Verified for real, this session:** Docker build (frontend + backend), `go vet` clean,
+daemon start/health/dashboard load, SQLite persistence at the real
+`~/.liveagentsview/lav.db` across a container recreate, live SSE updates in a browser,
+`lav init --dry-run` against the real `~/.claude/settings.json` (no hooks existed →
+previews adding 7) and real `~/.codex/config.toml` (an existing `notify` target for
+another tool → previews chaining, not replacing), 127.0.0.1-only binding after the fix
+above, `lav status`. The classifier was exercised with a real question ("Should I use
+React or Svelte for this?" → waiting) and a real completion message → done.
+
+**Not run for real:** the actual (non-dry-run) `lav init` write against this machine's
+config — left for the user to trigger deliberately (`scripts/lav-init.sh`), since it's a
+standing change to their Claude Code/Codex/Cursor setup and not something to do silently.
+Native launchd/systemd service install (see Acceptance) and Cursor's exact hook payload
+field names (see `internal/ingest/cursor.go`) are the two biggest remaining unknowns.
 
 ## Validation
 
@@ -169,6 +211,6 @@ Filled in by whoever validates.
 
 ```
 Spec: docs/sdd/specs/adopted-mode-mvp.md
-Status: ready
-Next: implement
+Status: done
+Next: validate
 ```

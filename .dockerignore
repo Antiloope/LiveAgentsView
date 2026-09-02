@@ -1,0 +1,9 @@
+.git
+docs
+**/node_modules
+apps/web/dist
+apps/lav/lav
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm

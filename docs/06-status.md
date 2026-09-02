@@ -30,19 +30,22 @@ Last updated: 2026-09-01
 
 | Piece | Status |
 |---|---|
-| Repository structure | done — docs, sdd, scripts placeholder, apps/ |
-| Apps in `apps/` | pending — folder ready, no deployables |
-| Compose local | sketch — Postgres only, needs updating to match the 2026-09-01 Docker-for-dev-only decision |
-| Scripts | placeholder — [scripts/README.md](../scripts/README.md) |
+| Repository structure | done — docs, sdd, scripts, apps/lav, apps/web |
+| Apps in `apps/` | `lav` (daemon+CLI) and `web` (dashboard) exist and build; see [apps/README.md](../apps/README.md) |
+| Compose local | done — `lav` service, SQLite bind-mounted to `~/.liveagentsview`, 127.0.0.1-only |
+| Scripts | `dev-up.sh`, `dev-down.sh`, `lav-init.sh`, `lav-status.sh` — [scripts/README.md](../scripts/README.md) |
 | CI | not set up yet |
-| Remote | not published — Q-03 (deferred) |
+| Remote | published at github.com/Antiloope/LiveAgentsView (Q-03 itself stays deferred as a docs question, but the repo already exists) |
 
 ## SDD specs
 
-[adopted-mode-mvp](sdd/specs/adopted-mode-mvp.md) — ready, next: implement. Index in
+[adopted-mode-mvp](sdd/specs/adopted-mode-mvp.md) — done, next: validate. Built and
+smoke-tested via Docker against real local Claude Code/Codex config (dry-run) this
+session; not yet formally validated against the spec's acceptance list. Index in
 [sdd/README.md](sdd/README.md).
 
 ## Suggested next step
 
-Implement the `adopted-mode-mvp` spec: daemon, `lav init`, adapters for Claude Code,
-Codex and Cursor over the canonical event model, and the embedded React + Vite dashboard.
+Validate the `adopted-mode-mvp` spec against its acceptance list, then decide on the two
+flagged gaps: native launchd/systemd service install, and a real "open in the terminal"
+(currently copy-path only).

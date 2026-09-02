@@ -13,10 +13,9 @@ import (
 )
 
 // launchCursor starts one cursor-agent one-shot invocation. Confirmed live
-// against the installed CLI (see docs/03-decisions.md, "Cursor piloted
-// sessions auto-approve, no live permission gate"): --output-format
-// stream-json only works with --print, there is no --input-format, and a
-// tool call needing approval is silently rejected rather than paused on —
+// against the installed CLI: --output-format stream-json only works with
+// --print, there is no --input-format, and a tool call needing approval is
+// silently rejected rather than paused on —
 // so --force/--yolo is the only way a Cursor piloted session can actually
 // get work done, and every message is its own process chained by
 // --resume/--continue rather than a persistent stdin channel. Used both for

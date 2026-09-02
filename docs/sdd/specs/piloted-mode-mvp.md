@@ -1,10 +1,10 @@
 ---
 title: Piloted-mode MVP — child-process driver, live chat, permissions, resume
 slug: piloted-mode-mvp
-status: done
+status: validated
 created: 2026-09-02
 updated: 2026-09-02
-next: validate
+next: none
 chain: specify
 ---
 
@@ -282,13 +282,118 @@ and the same attention queue as adopted sessions.
 
 ## Validation
 
-_Filled in during validate — this implementation pass's own verification is recorded in
-How above, not here; validate is a separate, colder review._
+Colder review against the code as it stands (not a rerun of How's live CLI exercise) —
+checked every Acceptance item against `apps/lav/internal/pilot/`, `daemon/server.go`,
+`store.go`, `sse/hub.go`, and the `apps/web` pilot UI, plus the AGENTS.md rules this spec's
+diff touches. Two real gaps were found and fixed in this pass; both are logged below.
+
+1. **New piloted session launch (provider, existing directory, optional existing branch,
+   initial prompt; no worktree/branch creation)** — **yes**. `App.tsx`'s
+   `NewPilotedSessionForm` collects exactly these four fields;
+   `handleLaunchPiloted` (`daemon/server.go`) validates provider/prompt/`cwd` and does a
+   plain `git checkout <branch>` (never `-f`) — no worktree or branch creation anywhere in
+   the path.
+2. **Plain child process, exact launch args** — **yes**, with one harmless addition each
+   side: Claude Code's `launchClaude` runs `-p --input-format stream-json --output-format
+   stream-json --verbose --permission-mode default` plus `--session-id <uuid>` (fresh) or
+   `--resume <id>`) — `--verbose` isn't in the spec's literal flag list but stream-json
+   output in print mode needs it. Cursor's `launchCursor` runs `-p --output-format
+   stream-json --force --trust --workspace <cwd>` plus `--resume <chatId>` when chaining —
+   `--workspace` is an addition, redundant with `cmd.Dir` but not wrong. Neither changes
+   behavior described in Acceptance.
+3. **Dedicated live chat view over SSE, no manual refresh** — **yes**.
+   `PilotedSessionView.tsx` replays history via `fetchPilotEvents` then appends live events
+   from `subscribeToPilotEvents`, a second `EventSource` independent of the dashboard's
+   global stream, exactly as the How section describes.
+4. **Free-form message any time for Claude Code (incl. WORKING); Cursor gated to
+   not-mid-turn, UI states the restriction rather than queuing/dropping** — **yes**.
+   `sendClaudeMessage` only checks the process is running; `sendCursorMessage` returns
+   `ErrTurnInProgress` (409) while a one-shot invocation is in flight.
+   `PilotedSessionView`'s `canSend` mirrors this per-provider, and the compose box's
+   placeholder text states the restriction instead of silently queueing.
+5. **Claude Code permission approve/deny control; Cursor never shows one, UI says why** —
+   **yes**. `TranscriptEntry` renders approve/deny for `permission_request` events; Cursor's
+   driver (`handleCursorLine`) never emits that event kind at all (no code path can),
+   so the control structurally cannot appear for a Cursor session, and
+   `PilotedSessionView` shows a banner explaining Cursor auto-approves.
+6. **Distinct interrupt/cancel, per-provider semantics** — **yes** for the plumbing
+   (`Manager.Interrupt`/`Cancel`, `killCursor` backing both for Cursor). Claude Code's
+   mid-turn interrupt wire shape (`buildInterruptRequest`) is still not live-verified
+   against a real authenticated run, exactly as the spec's own How section already
+   disclosed — not a new gap, still open.
+7. **Same canonical states and classifier instance, no parallel implementation** — **yes**.
+   `Manager.classify` calls the injected `classifier.Classifier` (`NewManager`'s `cls`
+   parameter, wired from the same instance `daemon.New` builds); `model.State` values are
+   reused directly, no piloted-only state enum.
+8. **Same dashboard/attention queue, tagged, inline actions replacing
+   terminal/copy-path** — **yes**. `App.tsx`'s `GROUPS` render every session regardless of
+   fidelity; `s.fidelity === 'driver'` swaps `OpenTerminalButton`/`CopyPathButton` for a
+   "View chat" button into the same card layout.
+9. **SQLite persists identity and full transcript, visible after a restart** — **yes**,
+   with one wording nuance: provider, directory, branch and the provider-native session id
+   are columns on the persisted `Session` row (`model.Session` has no separate
+   "initial prompt" field), but the initial prompt is the transcript's first `user` event,
+   which `ListEvents`/`fetchPilotEvents` replays on reopen — so the prompt is visible after
+   a restart exactly as required, just via the transcript rather than a dedicated identity
+   column. No functional gap.
+10. **Restart reconciliation reflects "no live process" honestly, offers resume** —
+    **yes**. `ReconcileOnStartup` flips any session found WORKING/WAITING/BLOCKED to IDLE
+    on daemon start; `PilotedSessionView`'s `canResume` offers the button for Claude Code
+    (idle/failed), and for Cursor sending a new message already re-resumes via
+    `--resume <chatId>` with no separate button needed, matching Resume's own no-op path
+    for Cursor (`case model.ProviderCursor: // Nothing to start.`).
+11. **Every new endpoint stays bound to `127.0.0.1` only** — **no, real gap, found and
+    fully closed in this pass.** `cmd/lav/main.go` called `http.ListenAndServe(":"+port(),
+    srv)` — an empty host binds every interface, not loopback only. This predates this spec
+    (introduced in [adopted-mode-mvp](adopted-mode-mvp.md)) and was masked there because
+    `compose.yaml` explicitly publishes only `127.0.0.1:${LAV_PORT}` through Docker's port
+    mapping. This spec is the one that makes native execution
+    ([native-host-runtime](native-host-runtime.md)'s launchd service) the actual way `lav
+    serve` runs piloted sessions, which drops that Docker-level protection — confirmed live
+    against this machine's actual running service before the fix: `lsof -nP -iTCP:8420
+    -sTCP:LISTEN` showed `lav ... TCP *:8420 (LISTEN)`, i.e. reachable from any interface,
+    not just loopback, on the same machine this spec's own "Already decided" section calls
+    an RCE surface once permission approval and process execution are live. Fixed:
+    `addr := "127.0.0.1:" + port()`. Closed end-to-end with the user's go-ahead: rebuilt
+    the native binary via `scripts/lav-service-install.sh` (Docker's `native-binary` stage)
+    and reinstalled the launchd service, then re-confirmed live — `lsof` now shows `lav
+    ... TCP 127.0.0.1:8420 (LISTEN)` and `GET /healthz` returns `200` on the new
+    binary/PID. No piloted (Driver-fidelity) session was running at restart time, so no
+    in-flight work was lost.
+12. **Fixed permission mode per provider, no per-session config UI** — **yes**. No mode
+    parameter anywhere in the launch form, API, or `LaunchSpec`.
+13. **No regression to adopted-mode sessions/hooks/dashboard** — **yes**. `handleHook`'s
+    only change is the early-return guard for sessions already at Driver fidelity — the
+    Hooks-fidelity path below it is untouched; `App.tsx` still renders
+    `OpenTerminalButton`/`CopyPathButton` unchanged for non-driver cards.
+14. **AGENTS.md: comments state reasoning directly, no `docs/` citations** — **no, real
+    gap, fixed in this pass.** `scripts/check-doc-citations.sh` failed on a comment in
+    `internal/pilot/cursor.go` citing `docs/03-decisions.md` as the reason for Cursor's
+    `--force`/`--yolo` launch args, instead of stating the confirmed behavior directly —
+    the same mistake previously made and corrected in
+    [native-host-runtime](native-host-runtime.md). Fixed here by rewriting the comment to
+    state the confirmed CLI behavior inline with no doc pointer; the script now passes
+    clean.
+
+**Gap left open, not closed by this pass:**
+- Claude Code's live permission-approval/mid-turn-interrupt wire shapes remain unverified
+  against a real authenticated run — unchanged from How, needs an authenticated `claude`
+  CLI this environment doesn't have. Not a regression from this pass, and not new: the
+  spec's own How section already disclosed it honestly.
 
 ## Handoff
 
 ```
 Spec: docs/sdd/specs/piloted-mode-mvp.md
-Status: done
-Next: validate
+Status: validated
+Next: none
 ```
+
+Two real gaps found and fully closed this pass: an `AGENTS.md` doc-citation violation in
+`internal/pilot/cursor.go`, and `cmd/lav/main.go` binding all interfaces instead of
+`127.0.0.1` only (masked pre-piloted-mode by Docker's port publish, unmasked once native
+execution became the real run path) — fixed, rebuilt, redeployed to this machine's live
+launchd service, and re-confirmed via `lsof`. One known gap stays open by design, unchanged
+from How: Claude Code's live permission-approval/interrupt wire shapes are still not
+verified against a real authenticated run, since this environment cannot authenticate the
+`claude` CLI.

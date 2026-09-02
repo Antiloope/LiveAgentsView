@@ -1,10 +1,10 @@
 ---
 title: Piloted-only mode — remove adopted/hooks entirely, detached-process continuity
 slug: piloted-only-mode
-status: in-progress
+status: done
 created: 2026-09-02
 updated: 2026-09-02
-next: implement
+next: validate
 chain: specify
 ---
 
@@ -268,6 +268,55 @@ builds and typechecks clean via `vite build` + `tsc --noEmit`.
 `compose.dev.yaml`/`compose.yaml`/`Dockerfile` comments and
 `apps/lav/README.md` updated to match.
 
+**Live verification against this real machine** (rebuilt and redeployed via
+`scripts/lav-service-install.sh`, replacing the running
+`dev.liveagentsview.lav` launchd job):
+
+- Real hooks uninstall executed for real (`~/.liveagentsview/bin/lav
+  uninstall-hooks --yes`, after a `--dry-run` preview): all three files
+  backed up first, `~/.claude/settings.json`'s hooks removed and still valid
+  JSON, `~/.codex/config.toml`'s `notify` correctly restored to its
+  pre-existing chained `SkyComputerUseClient` target, `~/.cursor/hooks.json`
+  deleted (only our entries were in it), forwarder scripts gone,
+  `/hooks/claude-code` now 404s.
+- Pre-existing hooks-fidelity rows purged on the real SQLite: 51
+  sessions / 304 events before, 0 / 0 after, verified by querying the
+  database directly.
+- Two real piloted Claude Code sessions launched against a scratch
+  directory (authenticated `claude` CLI, harmless prompts, no tool use).
+  `launchctl kickstart -k` run mid-turn (confirmed still `working` seconds
+  before and after, via `ps` and the API): the `pilot-runner` and `claude`
+  child kept the exact same PIDs across the daemon's PID changing,
+  reparented to PID 1, still their own process group. The interrupted turn
+  completed normally afterward and its full result reached the reconnected
+  dashboard; the durable transcript file's line count matched the consumed
+  offset exactly (no drops, no duplicates).
+- This surfaced a real gap, fixed during implementation:
+  `ReconcileOnStartup` originally only attempted reconnect for
+  Working/Waiting/Blocked sessions, but Claude Code's process stays resident
+  after a turn reaches DONE — a just-finished session was unreachable
+  (Cancel returned 409) after a restart even though its process was still
+  alive, and the UI offers no Resume button for DONE. Reconnect is now
+  attempted for every driver session regardless of last-known state; the
+  IDLE-marking fallback still applies only when the dial genuinely fails.
+  Re-verified after the fix: the same DONE session correctly reconnected and
+  Cancel succeeded.
+- A live socket disconnect with no explicit "exited" frame (the daemon
+  itself going down, simulated separately by SIGKILL-ing a pilot-runner
+  process group directly) leaves the session's persisted state untouched
+  rather than guessing; a subsequent real restart's failed dial then
+  correctly falls back to IDLE — confirmed no session is ever shown live
+  once its process is actually gone.
+- Sending a follow-up message and Cancel (kill-via-socket) both verified
+  working through a reconnected, post-restart session.
+- Daemon confirmed still bound to `127.0.0.1:8420` only (`lsof`); the
+  control sockets are Unix domain sockets under `~/.liveagentsview/pilot/`,
+  filesystem-local, not network-reachable.
+- All test sessions, pilot files and scratch directories cleaned up
+  afterward; the real machine now has 0 hooks-fidelity sessions and the 3
+  pre-existing driver sessions from earlier piloted-mode-mvp testing,
+  unchanged.
+
 ## Validation
 
 _Filled in during validation._
@@ -276,6 +325,6 @@ _Filled in during validation._
 
 ```
 Spec: docs/sdd/specs/piloted-only-mode.md
-Status: ready
-Next: implement
+Status: done
+Next: validate
 ```

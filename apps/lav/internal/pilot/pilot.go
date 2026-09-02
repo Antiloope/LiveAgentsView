@@ -289,15 +289,21 @@ func (m *Manager) resolve(ctx context.Context, id string) (*pilotSession, error)
 	return ps, nil
 }
 
-// ReconcileOnStartup runs once at daemon startup. For every piloted session
-// last known to be live, it dials that session's pilot-runner socket: if
-// the detached process is still actually running, it reconnects (replaying
-// any transcript lines produced while this daemon was down, with no
-// duplicates and no drops — see reconnect) and leaves its state as-is,
-// immediately sendable/interruptible/cancelable again with no user action
-// needed. If the socket is gone, the process genuinely exited while this
-// daemon was down, and the session falls back to exactly the pre-restart-
-// continuity behavior: marked IDLE, Resume offered.
+// ReconcileOnStartup runs once at daemon startup. For every piloted session,
+// it dials that session's pilot-runner socket: if the detached process is
+// still actually running, it reconnects (replaying any transcript lines
+// produced while this daemon was down, with no duplicates and no drops —
+// see reconnect) and leaves its state as-is, immediately sendable/
+// interruptible/cancelable again with no user action needed. This is tried
+// regardless of the session's last recorded state, not just
+// Working/Waiting/Blocked: Claude Code's process stays resident after a
+// turn finishes, so a DONE session can very much still have a live process
+// worth reconnecting to. Only once the socket is confirmed gone — the
+// process genuinely exited while this daemon was down — does a session
+// still showing a live-looking state (Working/Waiting/Blocked) fall back to
+// the pre-restart-continuity behavior: marked IDLE, Resume offered. A
+// session already reading as non-live (Done/Failed/Idle) is left as-is
+// either way; there is nothing to correct.
 func (m *Manager) ReconcileOnStartup(ctx context.Context) error {
 	sessions, err := m.store.ListSessions(ctx)
 	if err != nil {
@@ -307,12 +313,12 @@ func (m *Manager) ReconcileOnStartup(ctx context.Context) error {
 		if sess.Fidelity != model.FidelityDriver {
 			continue
 		}
+		if m.reconnect(ctx, sess) {
+			continue
+		}
 		switch sess.State {
 		case model.StateWorking, model.StateWaiting, model.StateBlocked:
 		default:
-			continue
-		}
-		if m.reconnect(ctx, sess) {
 			continue
 		}
 		sess.State = model.StateIdle

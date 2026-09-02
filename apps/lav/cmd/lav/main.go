@@ -164,6 +164,7 @@ func cmdService(args []string) {
 		BinaryPath: exe,
 		LavHome:    dataDir(),
 		Port:       port(),
+		PATH:       os.Getenv("PATH"),
 		DryRun:     dryRun,
 	})
 	if err != nil {

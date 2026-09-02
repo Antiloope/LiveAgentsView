@@ -23,7 +23,20 @@ type Options struct {
 	// LAV_HOME. Logs are written under LavHome/logs.
 	LavHome string
 	Port    string
-	DryRun  bool
+	// PATH is baked into the service definition as-is. Both launchd and
+	// systemd --user start services with their own minimal PATH, not the
+	// installing shell's — internal/pilot spawns `claude`/`agent` by bare
+	// name, so without this the daemon can't find them even though the
+	// installing user's shell can. Callers pass os.Getenv("PATH") captured
+	// at `lav service install` time, when it still reflects that shell.
+	PATH   string
+	DryRun bool
+}
+
+// defaultPATH is used when the caller has no PATH to capture (PATH is
+// always set in a real shell, but service.Install has no other fallback).
+func defaultPATH(home string) string {
+	return home + "/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 }
 
 type Result struct {
@@ -64,6 +77,8 @@ const darwinPlistTmpl = `<?xml version="1.0" encoding="UTF-8"?>
 		<string>%[3]s</string>
 		<key>LAV_PORT</key>
 		<string>%[4]s</string>
+		<key>PATH</key>
+		<string>%[5]s</string>
 	</dict>
 	<key>RunAtLoad</key>
 	<true/>
@@ -84,11 +99,16 @@ func installDarwin(opt Options) (Result, error) {
 	}
 	plistPath := filepath.Join(home, "Library", "LaunchAgents", Label+".plist")
 	logsDir := filepath.Join(opt.LavHome, "logs")
-	content := fmt.Sprintf(darwinPlistTmpl, Label, opt.BinaryPath, opt.LavHome, opt.Port)
+	envPath := opt.PATH
+	if envPath == "" {
+		envPath = defaultPATH(home)
+	}
+	content := fmt.Sprintf(darwinPlistTmpl, Label, opt.BinaryPath, opt.LavHome, opt.Port, envPath)
 
 	preview := []string{
 		fmt.Sprintf("launchd (%s):", plistPath),
 		fmt.Sprintf("  - point at %s serve, LAV_HOME=%s LAV_PORT=%s", opt.BinaryPath, opt.LavHome, opt.Port),
+		fmt.Sprintf("  - PATH=%s", envPath),
 		fmt.Sprintf("  - logs under %s", logsDir),
 		"  - RunAtLoad + KeepAlive, bootstrapped into gui/<uid> (starts now and on every login)",
 	}
@@ -131,6 +151,7 @@ After=network.target
 ExecStart=%s serve
 Environment=LAV_HOME=%s
 Environment=LAV_PORT=%s
+Environment=PATH=%s
 Restart=on-failure
 
 [Install]
@@ -143,11 +164,16 @@ func installLinux(opt Options) (Result, error) {
 		return Result{}, fmt.Errorf("resolve home dir: %w", err)
 	}
 	unitPath := filepath.Join(home, ".config", "systemd", "user", "lav.service")
-	content := fmt.Sprintf(linuxUnitTmpl, opt.BinaryPath, opt.LavHome, opt.Port)
+	envPath := opt.PATH
+	if envPath == "" {
+		envPath = defaultPATH(home)
+	}
+	content := fmt.Sprintf(linuxUnitTmpl, opt.BinaryPath, opt.LavHome, opt.Port, envPath)
 
 	preview := []string{
 		fmt.Sprintf("systemd --user (%s):", unitPath),
 		fmt.Sprintf("  - point at %s serve, LAV_HOME=%s LAV_PORT=%s", opt.BinaryPath, opt.LavHome, opt.Port),
+		fmt.Sprintf("  - PATH=%s", envPath),
 		"  - daemon-reload, then enable --now lav.service",
 	}
 	if opt.DryRun {

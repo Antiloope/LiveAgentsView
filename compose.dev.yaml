@@ -1,22 +1,9 @@
 # Development overrides. Combined with compose.yaml:
 #   docker compose -f compose.yaml -f compose.dev.yaml ...
 #
-# `lav uninstall-hooks` needs to read/write the host's provider config
-# (~/.claude, ~/.codex, ~/.cursor) — those are only mounted here, not in the
-# base compose.yaml, since `lav serve` (the default/production path) never
-# needs them.
+# Nothing dev-only is needed right now — kept as the file future dev-only
+# tweaks (extra mounts, env) go in, and so dev-up.sh/dev-down.sh/lav-status.sh
+# keep passing a consistent set of -f flags to docker compose.
 
 services:
-  lav:
-    volumes:
-      - ${HOME}/.claude:/host-home/.claude
-      - ${HOME}/.codex:/host-home/.codex
-      - ${HOME}/.cursor:/host-home/.cursor
-    environment:
-      # Tells `lav uninstall-hooks` where the *host* sees its own config
-      # (container path above) and where the host sees LiveAgentsView's data
-      # dir (/data here, but ${HOME}/.liveagentsview on the host) — so the
-      # script paths it matches against config entries are the real,
-      # host-executable ones a previous "lav init" actually wrote.
-      LAV_HOST_HOME: /host-home
-      LAV_HOME_HOST_PATH: ${HOME}/.liveagentsview
+  lav: {}

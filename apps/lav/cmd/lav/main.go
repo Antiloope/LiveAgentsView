@@ -1,13 +1,10 @@
 // Command lav is both the daemon and its own CLI: `lav serve` runs the
 // daemon, `lav status` is a quick CLI-only view without opening the
-// browser, `lav uninstall-hooks` removes hooks a previous version's
-// `lav init` wrote to Claude Code/Codex/Cursor's own config, and
-// `lav pilot-runner`/`lav pilot-mcp` are internal helpers a piloted
-// session's process runs under — not meant to be invoked by hand.
+// browser, and `lav pilot-runner`/`lav pilot-mcp` are internal helpers a
+// piloted session's process runs under — not meant to be invoked by hand.
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"io/fs"
@@ -15,11 +12,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/daemon"
-	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/hooksuninstall"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotmcp"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotrunner"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/service"
@@ -35,8 +30,6 @@ func main() {
 	switch os.Args[1] {
 	case "serve":
 		cmdServe()
-	case "uninstall-hooks":
-		cmdUninstallHooks(os.Args[2:])
 	case "status":
 		cmdStatus()
 	case "service":
@@ -56,7 +49,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: lav <serve|uninstall-hooks [--dry-run] [--yes]|status|service install [--dry-run]>")
+	fmt.Fprintln(os.Stderr, "usage: lav <serve|status|service install [--dry-run]>")
 }
 
 // dataDir is LiveAgentsView's own data directory from this process's
@@ -124,87 +117,6 @@ func cmdServe() {
 	if err := http.ListenAndServe(addr, srv); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
-}
-
-// cmdUninstallHooks removes exactly what a previous version's `lav init`
-// wrote to Claude Code/Codex/Cursor's own config — piloted-only mode has no
-// hooks concept left to ingest, so leaving them installed would silently
-// keep POSTing to endpoints that no longer exist. Always previews first (a
-// real Options{DryRun:false} run below only happens after the operator
-// confirms, or passes --yes), and each touched config file is backed up
-// before being rewritten — see internal/hooksuninstall.
-func cmdUninstallHooks(args []string) {
-	// LAV_HOST_HOME / LAV_HOME_HOST_PATH are set when running inside the dev
-	// container (compose.dev.yaml) so the paths matched against config
-	// entries are real host paths, not container-internal ones. Empty in a
-	// native run, where the container and host filesystem views are the
-	// same thing.
-	home := os.Getenv("LAV_HOST_HOME")
-	if home == "" {
-		h, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatalf("resolve home dir: %v", err)
-		}
-		home = h
-	}
-
-	dryRun := false
-	assumeYes := false
-	for _, a := range args {
-		switch a {
-		case "--dry-run":
-			dryRun = true
-		case "--yes":
-			assumeYes = true
-		}
-	}
-
-	opts := hooksuninstall.Options{
-		Home:       home,
-		LavHome:    dataDir(),
-		LavHomeRef: os.Getenv("LAV_HOME_HOST_PATH"),
-	}
-
-	preview, err := hooksuninstall.Uninstall(withDryRun(opts, true))
-	if err != nil {
-		log.Fatalf("lav uninstall-hooks: %v", err)
-	}
-	for _, line := range preview.Preview {
-		fmt.Println(line)
-	}
-	if len(preview.Providers) == 0 {
-		fmt.Println("\nNothing to uninstall — no LiveAgentsView hooks found.")
-		return
-	}
-	if dryRun {
-		fmt.Println("\n(dry run — nothing written)")
-		return
-	}
-
-	if !assumeYes {
-		fmt.Print("\nThis backs up and rewrites the files listed above. Type \"yes\" to proceed: ")
-		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		if strings.TrimSpace(line) != "yes" {
-			fmt.Println("Aborted — nothing was written.")
-			return
-		}
-	}
-
-	res, err := hooksuninstall.Uninstall(withDryRun(opts, false))
-	if err != nil {
-		log.Fatalf("lav uninstall-hooks: %v", err)
-	}
-	fmt.Println("\nDone. Hooks removed for:", res.Providers)
-	for orig, backup := range res.Backups {
-		if backup != "" {
-			fmt.Printf("  backed up %s -> %s\n", orig, backup)
-		}
-	}
-}
-
-func withDryRun(opt hooksuninstall.Options, dryRun bool) hooksuninstall.Options {
-	opt.DryRun = dryRun
-	return opt
 }
 
 // cmdService registers the installed lav binary as a launchd (macOS) or

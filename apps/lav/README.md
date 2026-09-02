@@ -16,8 +16,8 @@ via the same Docker build and registers it as a launchd/systemd user service
 
 ## Layout
 
-- `cmd/lav` — CLI entrypoint (`serve`, `uninstall-hooks`, `status`,
-  `service install`, `pilot-runner`, `pilot-mcp`).
+- `cmd/lav` — CLI entrypoint (`serve`, `status`, `service install`,
+  `pilot-runner`, `pilot-mcp`).
 - `internal/model` — canonical Provider/State/Session types.
 - `internal/classifier` — end-of-turn classifier (rules-based v1, pluggable).
 - `internal/store` — SQLite persistence.
@@ -43,9 +43,6 @@ via the same Docker build and registers it as a launchd/systemd user service
   `internal/pilotmcp`.
 - `internal/sse` — the Server-Sent Events hub, shared by the dashboard's
   global session stream and each piloted session's transcript stream.
-- `internal/hooksuninstall` — `lav uninstall-hooks`: removes exactly what a
-  previous version's `lav init` added to Claude Code/Codex/Cursor's own
-  config, backing up each file first.
 - `internal/service` — `lav service install`: registers the running binary as
   a launchd (macOS) / systemd `--user` (Linux) service.
 - `web` — `go:embed` of the built frontend (`apps/web`); `web/static` is

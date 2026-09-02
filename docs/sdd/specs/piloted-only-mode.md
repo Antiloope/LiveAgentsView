@@ -573,3 +573,14 @@ Gaps the first validation pass found (fixed — see How, re-confirmed this pass)
    so a Resume can't silently orphan an already-running process — this would also close
    part of #16, since it stops the one code path most likely to create exactly this kind
    of invisible orphan today.
+
+## Follow-up: `lav uninstall-hooks` removed (2026-09-02)
+
+The command was a one-time migration for machines that had a previous version's
+`lav init` hooks installed — see Acceptance items 7-10 above, live-executed against
+this real machine during validation. With that migration already run, `lav
+uninstall-hooks`, `internal/hooksuninstall`, and `scripts/lav-uninstall-hooks.sh` were
+removed as dead code rather than kept shipping in the binary; `compose.dev.yaml`'s host
+config bind mounts and `LAV_HOST_HOME`/`LAV_HOME_HOST_PATH`, which existed only to
+support that command, were removed with it. Acceptance items 7-10 stay **yes** as a
+historical record of what ran; the command itself is no longer part of `lav`.

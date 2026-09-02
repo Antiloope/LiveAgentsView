@@ -161,3 +161,25 @@ Agent proposals raised in the session (not decided, see 05):
   reachable from another device over Tailscale from a phone. Confirmed, with the added
   detail that the frontend is embedded in the binary and the daemon must run as a user
   service so hooks are not lost when the dashboard is closed.
+
+---
+
+## 2026-09-02 — Follow-ups raised after installing the native service
+
+**Status: distilled 2026-09-02.** Moved to
+[05-ideas-to-discuss.md](05-ideas-to-discuss.md) as IDEA-07 through IDEA-10.
+
+Source: Rodrigo asking what's actually installed on his machine after
+[native-host-runtime](sdd/specs/native-host-runtime.md) (`done`, pending `validate`) put a
+real launchd service in place. Talking through "how do I get a new binary in when I change
+code" and "how would I install this on another machine" surfaced four gaps, none decided:
+
+- No `lav version` — the running binary carries no visible build identity, so there is no
+  way to tell whether a reinstall actually picked up the latest code short of doing it.
+- No `lav service uninstall` / general uninstall path — `lav-service-install.sh` writes
+  launchd/systemd config and provider hooks with nothing symmetric to remove them.
+- Dashboard UX still IP:port (`127.0.0.1:8420`) rather than a friendlier local name.
+- No prebuilt binary distribution — installing today means cloning the repo and having
+  Docker available to compile; there's no host to fetch a prebuilt mac/linux binary from,
+  and no first-run console wizard (e.g. "run as a systemd/launchd service, or start it by
+  hand?").

@@ -82,3 +82,44 @@ same live session instead of resuming a new one. Claude Code already has `--work
 `--tmux` natively, which should be reused rather than reimplemented.
 
 **Status:** unagreed
+
+## IDEA-07 — `lav version`
+
+**Proposal:** A version/build-identity subcommand (and equivalent dashboard footer) so it
+is possible to tell which build a running service is actually on, instead of the only way
+to be sure being "reinstall and see". Matters more now that
+[native-host-runtime](sdd/specs/native-host-runtime.md) makes the daemon a long-lived
+service the user does not restart on every code change.
+
+**Status:** unagreed
+
+## IDEA-08 — Uninstall path
+
+**Proposal:** A symmetric teardown for everything `lav init` and
+`lav service install` write: `lav service uninstall` (unload/disable the launchd/systemd
+unit, remove the plist/unit file) and a way to remove the hooks/notify entries from
+`~/.claude/settings.json`, `~/.codex/config.toml` and `~/.cursor/hooks.json` without hand
+editing them. No destructive action should require reading Go source to reverse.
+
+**Status:** unagreed
+
+## IDEA-09 — Friendlier local dashboard address
+
+**Proposal:** Reach the dashboard at something nicer than `127.0.0.1:8420` — a local
+hostname (e.g. via mDNS/`.local`) or a fixed alias — as a small UX polish on top of the
+already-decided 127.0.0.1-only binding. Not remote access (that stays IDEA-05 territory);
+just a nicer name for the same loopback address.
+
+**Status:** unagreed
+
+## IDEA-10 — Prebuilt binary distribution and a first-run installer wizard
+
+**Proposal:** Host prebuilt `lav` binaries per OS/arch (mac/linux, amd64/arm64) somewhere
+installable without cloning the repo and running Docker to compile — the current
+`lav-service-install.sh` path is fine for the author dogfooding, but is friction for
+anyone else. Pair it with a first-run console wizard that asks how the user wants the
+daemon to run (register as a systemd/launchd service now, or just start it by hand) rather
+than always installing a service. Where to host the binaries (GitHub Releases, a package
+manager, something else) is itself part of what needs deciding here.
+
+**Status:** unagreed

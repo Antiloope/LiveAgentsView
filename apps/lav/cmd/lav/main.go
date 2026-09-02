@@ -15,6 +15,7 @@ import (
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/daemon"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/installer"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/service"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
 	webassets "github.com/Antiloope/LiveAgentsView/apps/lav/web"
 )
@@ -31,6 +32,8 @@ func main() {
 		cmdInit(os.Args[2:])
 	case "status":
 		cmdStatus()
+	case "service":
+		cmdService(os.Args[2:])
 	default:
 		usage()
 		os.Exit(1)
@@ -38,7 +41,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: lav <serve|init [--dry-run]|status>")
+	fmt.Fprintln(os.Stderr, "usage: lav <serve|init [--dry-run]|status|service install [--dry-run]>")
 }
 
 // dataDir is LiveAgentsView's own data directory from this process's
@@ -131,6 +134,50 @@ func cmdInit(args []string) {
 		return
 	}
 	fmt.Println("\nDone. Hooks installed for:", res.Providers)
+}
+
+// cmdService registers the installed lav binary as a launchd (macOS) or
+// systemd --user (Linux) service pointing at itself, so the daemon survives
+// a host reboot without Docker's restart policy standing in for it.
+func cmdService(args []string) {
+	if len(args) == 0 || args[0] != "install" {
+		fmt.Fprintln(os.Stderr, "usage: lav service install [--dry-run]")
+		os.Exit(1)
+	}
+
+	dryRun := false
+	for _, a := range args[1:] {
+		if a == "--dry-run" {
+			dryRun = true
+		}
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatalf("resolve own binary path: %v", err)
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+
+	res, err := service.Install(service.Options{
+		BinaryPath: exe,
+		LavHome:    dataDir(),
+		Port:       port(),
+		DryRun:     dryRun,
+	})
+	if err != nil {
+		log.Fatalf("lav service install: %v", err)
+	}
+
+	for _, line := range res.Preview {
+		fmt.Println(line)
+	}
+	if dryRun {
+		fmt.Println("\n(dry run — nothing written or registered)")
+		return
+	}
+	fmt.Println("\nInstalled and started:", res.Path)
 }
 
 func cmdStatus() {

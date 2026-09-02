@@ -1,7 +1,9 @@
 # LiveAgentsView daemon. Docker is for developing/running this locally
-# without installing Go or Node. The daemon only receives HTTP hook events
-# and writes to SQLite — it never touches the host filesystem or spawns a
-# process — which is what makes it safe to run in a container.
+# without installing Go or Node. Only adopted-mode hooks work against this
+# containerized daemon (HTTP in, SQLite out, no host access needed); piloted
+# sessions spawn `claude`/`agent` against the host's real filesystem and
+# login state, which needs the daemon running natively — see
+# scripts/lav-service-install.sh.
 #
 # Development overrides (host config bind mounts, needed for `lav init`) are
 # in compose.dev.yaml.

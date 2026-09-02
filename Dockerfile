@@ -1,10 +1,13 @@
 # Builds the LiveAgentsView daemon: the React dashboard (apps/web) compiled
 # to static assets, embedded into the Go binary (apps/lav) via go:embed.
 #
-# Docker is how this project is built and run locally without installing Go
-# or Node on the host. The daemon itself is safe to run in a container
-# because it only receives HTTP hook events and writes to SQLite — it never
-# touches the host filesystem or spawns a process.
+# Docker is how this project is built without installing Go or Node on the
+# host. The final runtime image below (what scripts/dev-up.sh actually runs)
+# can ingest adopted-mode hook events over HTTP with no host access needed,
+# but piloted sessions (internal/pilot) spawn `claude`/`agent` against the
+# host's real filesystem, git config and login state — those only work when
+# the daemon runs natively, via the native-binary stage below and
+# scripts/lav-service-install.sh, not in this container.
 
 # --- frontend ---------------------------------------------------------
 FROM node:22-alpine AS frontend-build

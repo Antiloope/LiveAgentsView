@@ -171,7 +171,8 @@ body {
 }
 
 .copy-path,
-.open-terminal {
+.open-terminal,
+.view-chat {
   flex: 0 0 auto;
   background: transparent;
   color: var(--muted);
@@ -183,7 +184,305 @@ body {
 }
 
 .copy-path:hover,
-.open-terminal:hover {
+.open-terminal:hover,
+.view-chat:hover {
   color: var(--fg);
   border-color: var(--muted);
+}
+
+/* --- new piloted session ------------------------------------------------ */
+
+.new-piloted {
+  margin-left: auto;
+  background: var(--working);
+  color: #0b0e14;
+  border: none;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-header {
+  flex-wrap: wrap;
+}
+
+.new-session-form {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 480px;
+}
+
+.new-session-form h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.new-session-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.new-session-form input,
+.new-session-form textarea,
+.new-session-form select {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.new-session-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.new-session-actions button,
+.pilot-actions button {
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.new-session-actions button[type='submit'] {
+  background: var(--working);
+  color: #0b0e14;
+  border: none;
+  font-weight: 600;
+}
+
+.new-session-actions button:disabled,
+.pilot-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.danger {
+  border-color: var(--blocked) !important;
+  color: var(--blocked) !important;
+}
+
+.banner-note {
+  background: rgba(76, 154, 255, 0.12);
+  border: 1px solid var(--working);
+  color: var(--fg);
+  font-size: 0.85rem;
+}
+
+/* --- piloted session live view ------------------------------------------ */
+
+.pilot-view {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4rem);
+  gap: 0.75rem;
+}
+
+.pilot-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pilot-back {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.pilot-back:hover {
+  color: var(--fg);
+}
+
+.pilot-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.pilot-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.state-pill {
+  font-size: 0.7rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--border);
+}
+
+.state-blocked {
+  color: var(--blocked);
+  border-color: var(--blocked);
+}
+.state-failed {
+  color: var(--failed);
+  border-color: var(--failed);
+}
+.state-waiting {
+  color: var(--waiting);
+  border-color: var(--waiting);
+}
+.state-working {
+  color: var(--working);
+  border-color: var(--working);
+}
+.state-done {
+  color: var(--done);
+  border-color: var(--done);
+}
+.state-idle {
+  color: var(--idle);
+  border-color: var(--idle);
+}
+
+.pilot-transcript {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.bubble p {
+  margin: 0;
+}
+
+.bubble-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.bubble-user {
+  align-self: flex-end;
+  background: var(--working);
+  color: #0b0e14;
+}
+
+.bubble-assistant {
+  align-self: flex-start;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.bubble-tool {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.bubble-tool pre,
+.bubble-permission pre {
+  margin: 0.4rem 0 0;
+  overflow-x: auto;
+  font-size: 0.75rem;
+}
+
+.bubble-permission {
+  align-self: flex-start;
+  background: rgba(245, 184, 61, 0.12);
+  border: 1px solid var(--waiting);
+  max-width: 90%;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.permission-actions button {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+
+.bubble-system {
+  align-self: center;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.bubble-error {
+  align-self: center;
+  background: rgba(229, 72, 77, 0.12);
+  border: 1px solid var(--blocked);
+  color: var(--blocked);
+}
+
+.pilot-compose {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.pilot-compose textarea {
+  flex: 1;
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.pilot-compose button {
+  background: var(--working);
+  color: #0b0e14;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pilot-compose button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

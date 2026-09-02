@@ -3,7 +3,7 @@
 Mirror of the definition documents and the code that exists. **Decides nothing.**
 Updated when a fact changes, never to anticipate one.
 
-Last updated: 2026-09-02
+Last updated: 2026-09-02 (piloted-mode-mvp)
 
 ## Documentation
 
@@ -11,7 +11,7 @@ Last updated: 2026-09-02
 |---|---|
 | Vision | defined — [01-vision.md](01-vision.md) |
 | Scope | defined — [02-scope.md](02-scope.md) |
-| Decisions | 13 entries — [03-decisions.md](03-decisions.md) |
+| Decisions | 14 entries — [03-decisions.md](03-decisions.md) |
 | Open questions | 2 (Q-03, Q-06), both deferred — [04-open-questions.md](04-open-questions.md) |
 | Ideas to discuss | 10 unagreed — [05-ideas-to-discuss.md](05-ideas-to-discuss.md) |
 | Inbox | 2026-09-01 product session and 2026-09-02 native-runtime follow-ups, both distilled |
@@ -53,6 +53,17 @@ Last updated: 2026-09-02
   field names stay best-effort (never fired during verification); Linux (systemd,
   terminal fallback) stays code-reviewed only, not live-verified — both accepted as
   known gaps rather than blocking closure, not revisited by a follow-up spec.
+- [piloted-mode-mvp](sdd/specs/piloted-mode-mvp.md) — done, pending `validate`. Real
+  verification this session forced a scope change while implementing: Cursor's CLI has no
+  bidirectional driver protocol at all (confirmed live), so Cursor piloted sessions
+  auto-approve (`--force`/`--yolo`) instead of getting Claude Code's live permission
+  approve/deny. Both providers verified end-to-end against a real cross-compiled native
+  binary on an isolated data directory — Cursor fully (launch, multi-turn `--resume`,
+  daemon-restart reconciliation, resume-after-restart, all validation/error paths); Claude
+  Code's process spawn and stream parsing, but not live permission-approval/interrupt
+  (this environment's `claude` CLI cannot authenticate). Also fixed, found during the same
+  verification: a piloted session's own CLI hooks could silently downgrade it from Driver
+  back to Hooks fidelity.
 
 Index in [sdd/README.md](sdd/README.md).
 
@@ -65,5 +76,6 @@ setting up the native service, logged as IDEA-07 through IDEA-10 in
 path, a friendlier local dashboard address, and prebuilt binary distribution with a
 first-run install wizard. None agreed yet.
 
-Otherwise: the next meaningful product increment is piloted mode (Posture B's other
-half), which needs its own spec.
+piloted-mode-mvp is `done`, pending `validate` — a colder review against a real
+authenticated Claude Code CLI (this session's own environment could not authenticate one)
+would close the one real gap it left: live permission-approval and mid-turn interrupt.

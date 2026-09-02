@@ -1,21 +1,29 @@
 // Package daemon wires the HTTP server: hook ingestion endpoints per
-// provider, the JSON API and SSE stream for the dashboard, and serving the
-// embedded frontend. Binds to 127.0.0.1 only: exposing it would let
-// anything on the network approve agent permissions.
+// provider, the JSON API and SSE stream for the dashboard, piloted-session
+// control, and serving the embedded frontend. Binds to 127.0.0.1 only:
+// exposing it would let anything on the network approve agent permissions or
+// launch processes on this machine.
 package daemon
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/ingest"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilot"
+	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/sse"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/terminal"
 )
@@ -25,7 +33,8 @@ const maxHookBodyBytes = 1 << 20 // 1 MiB is generous for a hook payload
 type Server struct {
 	store      *store.Store
 	classifier classifier.Classifier
-	hub        *sseHub
+	hub        *sse.Hub
+	pilots     *pilot.Manager
 	mux        *http.ServeMux
 }
 
@@ -33,8 +42,12 @@ func New(st *store.Store, cls classifier.Classifier, webFS fs.FS) *Server {
 	s := &Server{
 		store:      st,
 		classifier: cls,
-		hub:        newSSEHub(),
+		hub:        sse.NewHub(),
 		mux:        http.NewServeMux(),
+	}
+	s.pilots = pilot.NewManager(st, cls, func(sess model.Session) { s.hub.Broadcast(sess) })
+	if err := s.pilots.ReconcileOnStartup(context.Background()); err != nil {
+		log.Printf("reconcile piloted sessions on startup: %v", err)
 	}
 	s.routes(webFS)
 	return s
@@ -53,8 +66,17 @@ func (s *Server) routes(webFS fs.FS) {
 	s.mux.HandleFunc("/hooks/cursor", s.handleHook(model.ProviderCursor))
 
 	s.mux.HandleFunc("/api/sessions", s.handleListSessions)
-	s.mux.HandleFunc("/api/events/stream", s.hub.handle)
+	s.mux.HandleFunc("/api/events/stream", s.hub.Handle)
 	s.mux.HandleFunc("/api/open-terminal", s.handleOpenTerminal)
+
+	s.mux.HandleFunc("POST /api/piloted/sessions", s.handleLaunchPiloted)
+	s.mux.HandleFunc("POST /api/piloted/sessions/{id}/message", s.handlePilotedMessage)
+	s.mux.HandleFunc("POST /api/piloted/sessions/{id}/permission", s.handlePilotedPermission)
+	s.mux.HandleFunc("POST /api/piloted/sessions/{id}/interrupt", s.handlePilotedInterrupt)
+	s.mux.HandleFunc("POST /api/piloted/sessions/{id}/cancel", s.handlePilotedCancel)
+	s.mux.HandleFunc("POST /api/piloted/sessions/{id}/resume", s.handlePilotedResume)
+	s.mux.HandleFunc("GET /api/piloted/sessions/{id}/events", s.handlePilotedEvents)
+	s.mux.HandleFunc("GET /api/piloted/sessions/{id}/stream", s.handlePilotedStream)
 
 	s.mux.Handle("/", http.FileServer(http.FS(webFS)))
 }
@@ -120,6 +142,15 @@ func (s *Server) handleHook(provider model.Provider) http.HandlerFunc {
 		createdAt := now
 		if existing, found, _ := s.store.GetSession(ctx, sig.SessionID); found {
 			createdAt = existing.CreatedAt
+			// A piloted session's own CLI process still fires its normal
+			// lifecycle hooks against this same daemon (they are not aware
+			// they were launched by LiveAgentsView) — those must not
+			// downgrade a session already tracked at Driver fidelity back
+			// to Hooks, discarding the richer piloted state and transcript.
+			if existing.Fidelity == model.FidelityDriver {
+				w.WriteHeader(http.StatusAccepted)
+				return
+			}
 		}
 
 		sess := model.Session{
@@ -145,7 +176,7 @@ func (s *Server) handleHook(provider model.Provider) http.HandlerFunc {
 			log.Printf("store event: %v", err)
 		}
 
-		s.hub.broadcast(sess)
+		s.hub.Broadcast(sess)
 		w.WriteHeader(http.StatusAccepted)
 	}
 }
@@ -185,5 +216,143 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(sessions); err != nil {
 		log.Printf("encode sessions response: %v", err)
+	}
+}
+
+// handleLaunchPiloted starts a new piloted session: validates the target
+// directory exists, checks out an optional branch (refusing rather than
+// discarding local changes — plain `git checkout`, never -f), and hands off
+// to internal/pilot to actually spawn the provider's CLI.
+func (s *Server) handleLaunchPiloted(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Provider string `json:"provider"`
+		Cwd      string `json:"cwd"`
+		Branch   string `json:"branch"`
+		Prompt   string `json:"prompt"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxHookBodyBytes)).Decode(&body); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+
+	provider := model.Provider(body.Provider)
+	if provider != model.ProviderClaudeCode && provider != model.ProviderCursor {
+		http.Error(w, "provider must be claude-code or cursor", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(body.Prompt) == "" {
+		http.Error(w, "prompt is required", http.StatusBadRequest)
+		return
+	}
+	info, err := os.Stat(body.Cwd)
+	if err != nil || !info.IsDir() {
+		http.Error(w, "cwd must be an existing directory", http.StatusBadRequest)
+		return
+	}
+
+	if body.Branch != "" {
+		if out, err := exec.Command("git", "-C", body.Cwd, "checkout", body.Branch).CombinedOutput(); err != nil {
+			http.Error(w, "git checkout "+body.Branch+": "+strings.TrimSpace(string(out)), http.StatusBadRequest)
+			return
+		}
+	}
+
+	sess, err := s.pilots.Launch(r.Context(), pilot.LaunchSpec{
+		Provider: provider,
+		Cwd:      body.Cwd,
+		Branch:   body.Branch,
+		Prompt:   body.Prompt,
+	})
+	if err != nil {
+		log.Printf("launch piloted session: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(sess)
+}
+
+func (s *Server) handlePilotedMessage(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxHookBodyBytes)).Decode(&body); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(body.Text) == "" {
+		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+	err := s.pilots.SendMessage(r.Context(), r.PathValue("id"), body.Text)
+	writePilotActionResult(w, err)
+}
+
+func (s *Server) handlePilotedPermission(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		RequestID string `json:"request_id"`
+		Approve   bool   `json:"approve"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&body); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if body.RequestID == "" {
+		http.Error(w, "request_id is required", http.StatusBadRequest)
+		return
+	}
+	err := s.pilots.ApprovePermission(r.Context(), r.PathValue("id"), body.RequestID, body.Approve)
+	writePilotActionResult(w, err)
+}
+
+func (s *Server) handlePilotedInterrupt(w http.ResponseWriter, r *http.Request) {
+	err := s.pilots.Interrupt(r.Context(), r.PathValue("id"))
+	writePilotActionResult(w, err)
+}
+
+func (s *Server) handlePilotedCancel(w http.ResponseWriter, r *http.Request) {
+	err := s.pilots.Cancel(r.Context(), r.PathValue("id"))
+	writePilotActionResult(w, err)
+}
+
+func (s *Server) handlePilotedResume(w http.ResponseWriter, r *http.Request) {
+	sess, err := s.pilots.Resume(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writePilotActionResult(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sess)
+}
+
+func (s *Server) handlePilotedEvents(w http.ResponseWriter, r *http.Request) {
+	events, err := s.pilots.Events(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+func (s *Server) handlePilotedStream(w http.ResponseWriter, r *http.Request) {
+	s.pilots.Hub(r.PathValue("id")).Handle(w, r)
+}
+
+// writePilotActionResult maps a pilot.Manager error to the right HTTP
+// status: unknown session, no live process to act on, or a Cursor turn
+// already in progress are all client-correctable, not server failures.
+func writePilotActionResult(w http.ResponseWriter, err error) {
+	switch {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, pilot.ErrNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, pilot.ErrNotRunning), errors.Is(err, pilot.ErrTurnInProgress):
+		http.Error(w, err.Error(), http.StatusConflict)
+	default:
+		log.Printf("piloted action error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

@@ -1,7 +1,7 @@
 # LiveAgentsView daemon. Docker is for developing/running this locally
-# without installing Go or Node — see docs/03-decisions.md 2026-09-01 and
-# apps/lav/README.md for why the daemon itself is fine to run in a
-# container even though the *shipped, piloted-mode* binary is not.
+# without installing Go or Node. The daemon only receives HTTP hook events
+# and writes to SQLite — it never touches the host filesystem or spawns a
+# process — which is what makes it safe to run in a container.
 #
 # Development overrides (host config bind mounts, needed for `lav init`) are
 # in compose.dev.yaml.
@@ -17,17 +17,15 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      # Bound to loopback only, per the decided boundary (docs/02-scope.md,
-      # "Explicit boundaries": a server that can approve permissions is RCE
-      # if exposed — Docker's default port publish binds 0.0.0.0, which
-      # would violate that, so it is pinned to 127.0.0.1 explicitly here.
+      # Bound to loopback only: a server that can approve permissions is RCE
+      # if exposed. Docker's default port publish binds 0.0.0.0, which would
+      # expose it, so it is pinned to 127.0.0.1 explicitly here.
       - "127.0.0.1:${LAV_PORT:-8420}:8420"
     environment:
       LAV_PORT: "8420"
     restart: unless-stopped
     volumes:
-      # SQLite lives at ~/.liveagentsview on the host, per the stack
-      # decision — bind-mounted straight through rather than a Docker
-      # named volume, so it is inspectable/backup-able like any other
-      # local file and a future native (non-Docker) build reads the same data.
+      # SQLite lives at ~/.liveagentsview on the host, bind-mounted straight
+      # through rather than a Docker named volume, so it is
+      # inspectable/backup-able like any other local file.
       - ${HOME}/.liveagentsview:/data

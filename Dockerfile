@@ -2,10 +2,9 @@
 # to static assets, embedded into the Go binary (apps/lav) via go:embed.
 #
 # Docker is how this project is built and run locally without installing Go
-# or Node on the host — see docs/03-decisions.md 2026-09-01 "Docker is for
-# developing LiveAgentsView, not for running it" and apps/lav/README.md for
-# why running the *daemon itself* in Docker does not contradict that
-# decision (adopted mode never touches the host filesystem).
+# or Node on the host. The daemon itself is safe to run in a container
+# because it only receives HTTP hook events and writes to SQLite — it never
+# touches the host filesystem or spawns a process.
 
 # --- frontend ---------------------------------------------------------
 FROM node:22-alpine AS frontend-build

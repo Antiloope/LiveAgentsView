@@ -1,6 +1,5 @@
 // Package store persists sessions and their event history to SQLite so the
-// daemon survives restarts without losing state (docs/02-scope.md: "Persists
-// enough state and history to survive restarts").
+// daemon survives restarts without losing state.
 package store
 
 import (
@@ -23,7 +22,7 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite at %s: %w", path, err)
 	}
-	// SQLite is single-writer; keep it simple for v1 rather than tune WAL/pragmas.
+	// SQLite is single-writer; keep it simple rather than tune WAL/pragmas.
 	db.SetMaxOpenConns(1)
 
 	s := &Store{db: db}

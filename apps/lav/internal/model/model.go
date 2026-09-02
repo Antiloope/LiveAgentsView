@@ -1,7 +1,5 @@
 // Package model holds the canonical types every provider adapter and the
-// daemon agree on. See docs/03-decisions.md (2026-09-01, "Canonical
-// event/state model") and docs/sdd/specs/adopted-mode-mvp.md for the
-// contract this implements.
+// daemon agree on.
 package model
 
 import "time"

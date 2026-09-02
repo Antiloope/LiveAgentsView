@@ -1,7 +1,7 @@
 // Package daemon wires the HTTP server: hook ingestion endpoints per
 // provider, the JSON API and SSE stream for the dashboard, and serving the
-// embedded frontend. Binds to 127.0.0.1 only — see docs/02-scope.md
-// "Explicit boundaries".
+// embedded frontend. Binds to 127.0.0.1 only: exposing it would let
+// anything on the network approve agent permissions.
 package daemon
 
 import (

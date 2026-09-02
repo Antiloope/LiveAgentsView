@@ -2,11 +2,8 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import type { Session, State } from './types'
 import { fetchSessions, subscribeToSessions } from './api'
 
-// Grouping and order follow the decided attention priority: BLOCKED and
-// FAILED surface loudly, DONE is grouped and quiet — see
-// docs/03-decisions.md 2026-09-01 "'An agent finished' is low-priority
-// attention" and docs/05-ideas-to-discuss.md IDEA-01 (full taxonomy still
-// unagreed beyond this).
+// Grouping and order follow attention priority: BLOCKED and FAILED surface
+// loudly, DONE is grouped and quiet.
 const GROUPS: { state: State; label: string; hint: string }[] = [
   { state: 'blocked', label: 'Needs you now', hint: 'waiting on a permission decision' },
   { state: 'failed', label: 'Failed', hint: 'errored or crashed' },
@@ -103,11 +100,10 @@ export default function App() {
   )
 }
 
-// A real one-click "open in the terminal" (docs/02-scope.md: "Lets the user
-// jump to the originating session") needs either a native helper on the
-// host or piloted-mode infrastructure — the daemon itself runs in a
-// container in this spec and cannot spawn anything on the host. Copying the
-// path is the honest stand-in for now; see the spec's Validation section.
+// Opening a terminal at the session's path would need either a native
+// helper on the host or the ability to spawn a process there — the daemon
+// runs in a container and cannot spawn anything on the host. Copying the
+// path is the available alternative.
 function CopyPathButton({ path }: { path: string }) {
   const [copied, setCopied] = useState(false)
 

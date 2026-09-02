@@ -1,6 +1,6 @@
 // Package web embeds the built frontend (apps/web, React + Vite) into the
-// daemon binary — see docs/03-decisions.md 2026-09-01 "Frontend stack" and
-// "Stack": one binary, no separate Node process, no separate static server.
+// daemon binary: one binary, no separate Node process, no separate static
+// server.
 //
 // static/ here is populated by the Docker build (frontend stage builds
 // apps/web, then copies its dist/ output here before `go build` — named

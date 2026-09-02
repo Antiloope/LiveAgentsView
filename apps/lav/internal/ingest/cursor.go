@@ -8,11 +8,9 @@ import (
 )
 
 // cursorHookPayload's field names are best-effort from documentation
-// research (docs/03-decisions.md 2026-09-01 "Canonical event/state model"),
-// not verified against a live payload — cursor-agent is not installed on
-// the machine this was built on. Verify against a real payload before
-// relying on this in production; see the spec's "Event model" notes and
-// Validation section.
+// research, not verified against a live payload — cursor-agent is not
+// installed on the machine this was built on. Verify against a real payload
+// before relying on this in production.
 type cursorHookPayload struct {
 	SessionID   string `json:"sessionId"`
 	Cwd         string `json:"cwd"`
@@ -22,8 +20,7 @@ type cursorHookPayload struct {
 }
 
 // ParseCursor maps a cursor-agent hook payload to a Signal. Cursor has no
-// dedicated BLOCKED signal (confirmed gap, not implemented here on
-// purpose) — see the spec's Event model table.
+// dedicated BLOCKED signal, so this adapter never emits that state.
 func ParseCursor(event string, body []byte) (model.Signal, error) {
 	var p cursorHookPayload
 	if len(body) > 0 {
@@ -47,7 +44,7 @@ func ParseCursor(event string, body []byte) (model.Signal, error) {
 	case "postToolUseFailure":
 		// A single tool call failing is not the same as the session
 		// failing — do not mark the whole session FAILED over one flaky
-		// command. See spec's Event model notes.
+		// command.
 		sig.State = model.StateWorking
 	case "stop":
 		switch p.Status {

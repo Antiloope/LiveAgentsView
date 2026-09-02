@@ -2,9 +2,6 @@
 // into each provider's existing configuration without overwriting anything
 // already there, previews the exact change, and writes small forwarder
 // scripts that POST hook payloads to the daemon.
-//
-// See docs/03-decisions.md 2026-09-01 "`lav init` merges hooks
-// non-destructively, with a preview" (closes Q-07).
 package installer
 
 import (
@@ -310,7 +307,7 @@ func initCursor(opt Options) (bool, []string, error) {
 		preview = append(preview, "  - file does not exist yet, will be created")
 	}
 	preview = append(preview, fmt.Sprintf("  - write helper script %s", scriptPathRef))
-	preview = append(preview, "  - note: unconfirmed whether these fire for sessions launched from the Cursor IDE itself, only confirmed for cursor-agent CLI sessions (see spec's Event model notes)")
+	preview = append(preview, "  - note: unconfirmed whether these fire for sessions launched from the Cursor IDE itself, only confirmed for cursor-agent CLI sessions")
 
 	changed := false
 	for _, event := range cursorEvents {

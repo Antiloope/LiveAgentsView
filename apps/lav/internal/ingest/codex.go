@@ -10,9 +10,8 @@ import (
 // codexNotifyPayload matches the one currently-documented Codex `notify`
 // event type, agent-turn-complete. Field names use hyphens per Codex's own
 // docs. This is the ONLY signal Codex gives us at Hooks fidelity — no
-// BLOCKED, no FAILED (see docs/03-decisions.md 2026-09-01 "Canonical
-// event/state model" and the spec's Event model table). Every call here is
-// ambiguous by nature: State is always left empty for the classifier.
+// BLOCKED, no FAILED. Every call here is ambiguous by nature: State is
+// always left empty for the classifier.
 type codexNotifyPayload struct {
 	Type                  string `json:"type"`
 	ThreadID              string `json:"thread-id"`

@@ -1,7 +1,6 @@
 // Command lav is both the daemon and its own CLI: `lav serve` runs the
 // daemon, `lav init` wires up provider hooks, `lav status` is a quick
-// CLI-only view without opening the browser (docs/02-scope.md: "also usable
-// from the CLI").
+// CLI-only view without opening the browser.
 package main
 
 import (

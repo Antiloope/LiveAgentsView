@@ -22,11 +22,6 @@ type claudeCodePayload struct {
 // event is the hook name (SessionStart, Notification, Stop, ...), taken from
 // which hook entry invoked the forwarder script rather than trusted purely
 // from the payload body, since that is known statically at "lav init" time.
-//
-// See docs/sdd/specs/adopted-mode-mvp.md "Event model" for the full table
-// this implements, and docs/03-decisions.md 2026-09-01 "Canonical
-// event/state model" for what was verified against Claude Code's docs vs.
-// what is inferred.
 func ParseClaudeCode(event string, body []byte) (model.Signal, error) {
 	var p claudeCodePayload
 	if len(body) > 0 {

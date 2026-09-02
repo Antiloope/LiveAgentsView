@@ -19,5 +19,3 @@ There is no shared `packages/`: common pieces live in `scripts/`, `docs/`, and
   run standalone in production; `npm run dev` works for local frontend-only
   iteration if you have Node, but `scripts/dev-up.sh` (Docker) is the
   supported path.
-
-Implements [docs/sdd/specs/adopted-mode-mvp.md](../docs/sdd/specs/adopted-mode-mvp.md).

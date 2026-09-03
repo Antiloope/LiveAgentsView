@@ -1,6 +1,6 @@
 // Package sse fans out arbitrary JSON-able values to every subscribed HTTP
 // client over Server-Sent Events. Used both for the dashboard's global
-// session stream and for each piloted session's live transcript stream.
+// character stream and for each character's own live transcript stream.
 package sse
 
 import (

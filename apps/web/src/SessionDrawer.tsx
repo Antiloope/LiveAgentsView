@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PilotEvent, Session } from './types'
-import { PROVIDER_LABEL, STATE_COLOR, STATE_LABEL } from './sprites'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Character, PilotEvent } from './types'
+import { RACE_LABEL, ACTIVITY_COLOR, ACTIVITY_LABEL } from './sprites'
 import Portrait from './Portrait'
 import {
-  archiveSession,
-  cancelPilotedSession,
-  fetchPilotEvents,
-  interruptPilotedSession,
-  resolvePilotPermission,
-  resumePilotedSession,
-  sendPilotMessage,
-  subscribeToPilotEvents,
+  archiveCharacter,
+  dismissCharacter,
+  fetchEvents,
+  interruptCharacter,
+  markRead,
+  sendMessage,
+  stopCharacter,
+  subscribeToEvents,
 } from './api'
 
 const DEFAULT_WIDTH = 460
@@ -18,15 +18,16 @@ const MIN_WIDTH = 320
 const STORAGE_KEY = 'lav.drawerWidth'
 
 interface Props {
-  session: Session | null
+  character: Character | null
   onClose: () => void
-  onSessionUpdate: (session: Session) => void
+  onCharacterUpdate: (character: Character) => void
+  onDismissed: (id: string) => void
 }
 
-export default function SessionDrawer({ session, onClose, onSessionUpdate }: Props) {
+export default function SessionDrawer({ character, onClose, onCharacterUpdate, onDismissed }: Props) {
   const drawerRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
-  const open = session !== null
+  const open = character !== null
 
   useEffect(() => {
     const saved = Number(localStorage.getItem(STORAGE_KEY))
@@ -70,13 +71,13 @@ export default function SessionDrawer({ session, onClose, onSessionUpdate }: Pro
   // starts from its own controls instead of wherever the party click left it.
   useEffect(() => {
     if (open) drawerRef.current?.querySelector<HTMLElement>('.drawer-close')?.focus()
-  }, [open, session?.id])
+  }, [open, character?.id])
 
   return (
     <>
       {/* Decorative dim only — pointer-events:none so clicking another party
           member or quest token (still visible beside the drawer by design)
-          switches the drawer's session directly instead of needing a close
+          switches the drawer's character directly instead of needing a close
           click first. Escape and the ✕ button remain the ways to close. */}
       <div className={`scrim${open ? ' open' : ''}`} />
       <div
@@ -84,12 +85,19 @@ export default function SessionDrawer({ session, onClose, onSessionUpdate }: Pro
         className={`drawer${open ? ' open' : ''}`}
         style={{ width: DEFAULT_WIDTH }}
         role="dialog"
-        aria-label={session ? `${PROVIDER_LABEL[session.provider]} session` : undefined}
+        aria-label={character ? `${RACE_LABEL[character.race]} character` : undefined}
         aria-hidden={!open}
       >
         <div className={`drawer-handle${dragging ? ' dragging' : ''}`} onMouseDown={startDrag} title="Drag to resize" />
         <div className="drawer-body">
-          {session && <DrawerContent session={session} onClose={onClose} onSessionUpdate={onSessionUpdate} />}
+          {character && (
+            <DrawerContent
+              character={character}
+              onClose={onClose}
+              onCharacterUpdate={onCharacterUpdate}
+              onDismissed={onDismissed}
+            />
+          )}
         </div>
       </div>
     </>
@@ -97,46 +105,54 @@ export default function SessionDrawer({ session, onClose, onSessionUpdate }: Pro
 }
 
 function DrawerContent({
-  session,
+  character,
   onClose,
-  onSessionUpdate,
+  onCharacterUpdate,
+  onDismissed,
 }: {
-  session: Session
+  character: Character
   onClose: () => void
-  onSessionUpdate: (session: Session) => void
+  onCharacterUpdate: (character: Character) => void
+  onDismissed: (id: string) => void
 }) {
   return (
     <>
       <div className="drawer-header">
         <div className="drawer-sprite">
-          <Portrait sessionId={session.id} model={session.model} />
+          <Portrait characterId={character.id} race={character.race} />
         </div>
         <div className="drawer-header-text">
           <div className="name pixel-face">
-            {PROVIDER_LABEL[session.provider]} — {session.repo || session.cwd || session.id}
+            {RACE_LABEL[character.race]} — {character.repo || character.territory.path || character.id}
           </div>
-          <div className="repo">{session.branch || session.worktree || session.cwd}</div>
-          <div className="state-pill pixel-face" style={{ background: STATE_COLOR[session.state], color: session.state === 'waiting' || session.state === 'idle' ? '#2a1a0c' : '#fff8e8' }}>
-            {STATE_LABEL[session.state]}
+          <div className="repo">{character.territory.branch || character.territory.path}</div>
+          {character.class && <span className="class-badge mono">{character.class}</span>}
+          <div
+            className="state-pill pixel-face"
+            style={{ background: ACTIVITY_COLOR[character.activity], color: character.activity === 'waiting' ? '#2a1a0c' : '#fff8e8' }}
+          >
+            {ACTIVITY_LABEL[character.activity]} · {character.presence}
           </div>
         </div>
         <button type="button" className="drawer-close" aria-label="Close" onClick={onClose}>
           ✕
         </button>
       </div>
-      <PilotChat session={session} onSessionUpdate={onSessionUpdate} onClose={onClose} />
+      <PilotChat character={character} onCharacterUpdate={onCharacterUpdate} onClose={onClose} onDismissed={onDismissed} />
     </>
   )
 }
 
 function PilotChat({
-  session,
-  onSessionUpdate,
+  character,
+  onCharacterUpdate,
   onClose,
+  onDismissed,
 }: {
-  session: Session
-  onSessionUpdate: (session: Session) => void
+  character: Character
+  onCharacterUpdate: (character: Character) => void
   onClose: () => void
+  onDismissed: (id: string) => void
 }) {
   const [events, setEvents] = useState<PilotEvent[]>([])
   const [draft, setDraft] = useState('')
@@ -147,97 +163,118 @@ function PilotChat({
 
   useEffect(() => {
     setEvents([])
-    fetchPilotEvents(session.id)
+    // The history fetch and the live subscription race: a live event can
+    // arrive before the fetch resolves. Buffer those instead of appending
+    // them immediately, so the fetch's own setEvents(list) below — which
+    // must overwrite the initial [] — can't clobber them. Once resolved,
+    // fold in whatever was buffered, skipping any the fetch's own read
+    // already picked up (same character, same server-assigned `at`).
+    let resolved = false
+    const buffered: PilotEvent[] = []
+    fetchEvents(character.id)
       .then((list) => {
-        setEvents(list)
-        // A session with no history yet is exactly what a fresh recruit
-        // looks like (Claude Code seats it at camp with no initial
-        // message) — focus the compose box so the first quest can be
+        resolved = true
+        const known = new Set(list.map((e) => JSON.stringify(e)))
+        const extra = buffered.filter((e) => !known.has(JSON.stringify(e)))
+        const merged = [...list, ...extra]
+        setEvents(merged)
+        // A character with no history yet is exactly what a fresh recruit
+        // looks like — focus the compose box so its first quest can be
         // typed right away, same box used for every message after it.
-        if (list.length === 0) composeRef.current?.focus()
+        if (merged.length === 0) composeRef.current?.focus()
       })
       .catch((err) => setError(String(err)))
-    return subscribeToPilotEvents(session.id, (event) => {
+    return subscribeToEvents(character.id, (event) => {
+      if (!resolved) {
+        buffered.push(event)
+        return
+      }
       setEvents((prev) => [...prev, event])
     })
-  }, [session.id])
+  }, [character.id])
+
+  // The interface's own explicit "read" signal — the only thing that
+  // clears the unread mark, per the character model. Fires once when the
+  // drawer opens on an already-unread character, and again if a quest ends
+  // without a question while its drawer is already open — the user is
+  // watching this exact transcript live, so that news is seen the moment
+  // it arrives, not left marked unread until the drawer is reopened.
+  // Fire-and-forget: a failure here just leaves the mark up for next time.
+  useEffect(() => {
+    if (character.unread) markRead(character.id).catch(() => undefined)
+  }, [character.id, character.unread])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [events.length])
 
-  // A request_id shows its approve/deny controls until a matching
-  // permission_resolved event for the same id arrives.
-  const resolvedRequestIds = useMemo(() => {
-    const set = new Set<string>()
-    for (const e of events) {
-      if (e.kind === 'permission_resolved' && e.request_id) set.add(e.request_id)
-    }
-    return set
-  }, [events])
-
-  const isCursor = session.provider === 'cursor'
-  // Cursor: every message is its own one-shot process, so "can send" just
-  // means "not currently mid-turn". Claude Code: the process stays attached
-  // across turns, so sending only fails once it's gone (idle/failed).
-  const canSend = isCursor ? session.state !== 'working' : session.state !== 'idle' && session.state !== 'failed'
-  const canInterruptOrCancel = isCursor ? session.state === 'working' : canSend
-  const canResume = !isCursor && (session.state === 'idle' || session.state === 'failed')
-  const canArchive = session.state !== 'working' && !session.archived
+  const canStop = character.activity === 'working'
+  const canArchive = !character.archived
 
   const runAction = useCallback(
-    (action: () => Promise<void | Session>) => {
+    (action: () => Promise<void | Character>) => {
       setBusy(true)
       setError(null)
       action()
         .then((updated) => {
-          if (updated) onSessionUpdate(updated)
+          if (updated) onCharacterUpdate(updated)
         })
         .catch((err) => setError(String(err)))
         .finally(() => setBusy(false))
     },
-    [onSessionUpdate],
+    [onCharacterUpdate],
   )
 
   const send = useCallback(() => {
     const text = draft.trim()
     if (!text) return
     setDraft('')
-    runAction(() => sendPilotMessage(session.id, text))
-  }, [draft, runAction, session.id])
+    runAction(() => sendMessage(character.id, text))
+  }, [draft, runAction, character.id])
 
   const archive = useCallback(() => {
+    if (!window.confirm(`Archive ${RACE_LABEL[character.race]}? ${canStop ? 'Its current quest will be stopped. ' : ''}Its transcript and territory stay, and talking to it later wakes it again.`)) {
+      return
+    }
     setBusy(true)
     setError(null)
-    archiveSession(session.id)
+    archiveCharacter(character.id)
       .then((updated) => {
-        onSessionUpdate(updated)
+        onCharacterUpdate(updated)
         onClose()
       })
       .catch((err) => setError(String(err)))
       .finally(() => setBusy(false))
-  }, [session.id, onSessionUpdate, onClose])
+  }, [character.id, character.race, canStop, onCharacterUpdate, onClose])
+
+  const dismiss = useCallback(() => {
+    if (!window.confirm(`Dismiss ${RACE_LABEL[character.race]} for good? This stops it and deletes its transcript. This cannot be undone.`)) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    dismissCharacter(character.id)
+      .then(({ worktreeLeftAt }) => {
+        onDismissed(character.id)
+        onClose()
+        if (worktreeLeftAt) {
+          window.alert(`Its worktree had uncommitted changes, so it was left in place at:\n${worktreeLeftAt}`)
+        }
+      })
+      .catch((err) => setError(String(err)))
+      .finally(() => setBusy(false))
+  }, [character.id, character.race, onDismissed, onClose])
 
   return (
     <>
       <div className="drawer-pilot-actions">
-        {canResume && (
-          <button type="button" disabled={busy} onClick={() => runAction(() => resumePilotedSession(session.id))}>
-            Resume
-          </button>
-        )}
-        {canInterruptOrCancel && (
+        {canStop && (
           <>
-            <button type="button" disabled={busy} onClick={() => runAction(() => interruptPilotedSession(session.id))}>
+            <button type="button" disabled={busy} onClick={() => runAction(() => interruptCharacter(character.id))}>
               Interrupt
             </button>
-            <button
-              type="button"
-              className="danger"
-              disabled={busy}
-              onClick={() => runAction(() => cancelPilotedSession(session.id))}
-            >
-              Cancel
+            <button type="button" className="danger" disabled={busy} onClick={() => runAction(() => stopCharacter(character.id))}>
+              Stop
             </button>
           </>
         )}
@@ -246,24 +283,16 @@ function PilotChat({
             Archive
           </button>
         )}
+        <button type="button" className="danger" disabled={busy} onClick={dismiss}>
+          Dismiss
+        </button>
       </div>
 
       {error && <div className="banner banner-error">{error}</div>}
-      {isCursor && (
-        <div className="banner banner-note">
-          Cursor piloted sessions auto-approve every tool call (no live permission gate) — see the transcript for what
-          it did.
-        </div>
-      )}
 
       <div className="transcript">
         {events.map((event, i) => (
-          <TranscriptEntry
-            key={i}
-            event={event}
-            resolved={event.request_id ? resolvedRequestIds.has(event.request_id) : false}
-            onApprove={(approve) => runAction(() => resolvePilotPermission(session.id, event.request_id ?? '', approve))}
-          />
+          <TranscriptEntry key={i} event={event} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -279,8 +308,8 @@ function PilotChat({
           ref={composeRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={canSend ? 'Message this session…' : 'No live process — resume to keep chatting'}
-          disabled={!canSend || busy}
+          placeholder={character.activity === 'working' ? 'Message this character — delivered once its current quest ends…' : 'Message this character…'}
+          disabled={busy}
           rows={2}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -289,7 +318,7 @@ function PilotChat({
             }
           }}
         />
-        <button type="submit" className="pixel-btn" disabled={!canSend || busy || !draft.trim()}>
+        <button type="submit" className="pixel-btn" disabled={busy || !draft.trim()}>
           Send
         </button>
       </form>
@@ -297,15 +326,7 @@ function PilotChat({
   )
 }
 
-function TranscriptEntry({
-  event,
-  resolved,
-  onApprove,
-}: {
-  event: PilotEvent
-  resolved: boolean
-  onApprove: (approve: boolean) => void
-}) {
+function TranscriptEntry({ event }: { event: PilotEvent }) {
   switch (event.kind) {
     case 'user':
       return (
@@ -327,31 +348,6 @@ function TranscriptEntry({
           {event.tool_input !== undefined && <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 2000)}</pre>}
         </div>
       )
-    case 'permission_request':
-      return (
-        <div className="bubble permission">
-          <span className="bubble-label">Permission requested: {event.tool_name || 'tool'}</span>
-          {event.tool_input !== undefined && <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 2000)}</pre>}
-          {resolved ? (
-            <p className="hint">resolved</p>
-          ) : (
-            <div className="actions">
-              <button type="button" className="approve" onClick={() => onApprove(true)}>
-                Approve
-              </button>
-              <button type="button" onClick={() => onApprove(false)}>
-                Deny
-              </button>
-            </div>
-          )}
-        </div>
-      )
-    case 'permission_resolved':
-      return (
-        <div className="bubble system">
-          <p>{event.approved ? 'Approved' : 'Denied'} the pending permission request.</p>
-        </div>
-      )
     case 'error':
       return (
         <div className="bubble error">
@@ -366,4 +362,3 @@ function TranscriptEntry({
       )
   }
 }
-

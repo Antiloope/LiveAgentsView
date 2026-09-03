@@ -1,44 +1,42 @@
-export type Provider = 'claude-code' | 'codex' | 'cursor'
-export type State = 'working' | 'waiting' | 'blocked' | 'done' | 'failed' | 'idle'
+export type Race = 'claude-code' | 'cursor'
+export type Activity = 'ready' | 'working' | 'waiting' | 'failed'
+export type Presence = 'awake' | 'asleep'
+export type TerritoryMode = 'own' | 'shared'
 
-export interface Session {
-  id: string
-  provider: Provider
-  cwd: string
-  repo: string
+export interface Territory {
+  mode: TerritoryMode
+  path: string
+  source: string
   branch: string
-  worktree: string
-  model: string
-  state: State
-  last_message: string
+}
+
+export interface Character {
+  id: string
+  session_id: string
+  race: Race
+  class: string
+  activity: Activity
+  presence: Presence
+  unread: boolean
+  territory: Territory
+  repo: string
   archived: boolean
+  last_message: string
   created_at: string
   updated_at: string
 }
-
-// PilotProvider is narrower than Provider: only these two can be piloted
-// (launched and driven by LiveAgentsView) in this MVP — see
-// PilotedSessionView for what each one can and can't do live.
-export type PilotProvider = 'claude-code' | 'cursor'
 
 // The three Claude Code model aliases the recruit panel offers — confirmed
 // live against the installed CLI's --model flag.
 export type ClaudeClassId = 'opus' | 'sonnet' | 'haiku'
 
-// One entry from the daemon's live `agent --list-models` catalog.
-export interface CursorModelOption {
+// One entry from the daemon's live Cursor class catalog (`agent --list-models`).
+export interface CursorClassOption {
   id: string
   label: string
 }
 
-export type PilotEventKind =
-  | 'user'
-  | 'assistant'
-  | 'tool_call'
-  | 'permission_request'
-  | 'permission_resolved'
-  | 'system'
-  | 'error'
+export type PilotEventKind = 'user' | 'assistant' | 'tool_call' | 'system' | 'error'
 
 export interface PilotEvent {
   kind: PilotEventKind
@@ -46,6 +44,5 @@ export interface PilotEvent {
   tool_name?: string
   tool_input?: unknown
   request_id?: string
-  approved?: boolean
   at: string
 }

@@ -1,144 +1,44 @@
 package pilot
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"os/exec"
-	"time"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
 )
 
-// launchCursor starts one cursor-agent turn. cursor-agent assigns its own
-// session id on a fresh launch — unlike Claude Code's --session-id, there is
-// no flag to choose one upfront — so the very first turn (resumeChatID
-// empty) has no id to name a pilot-runner's control socket after until that
-// id is known, and stays a direct, not-yet-detached child of this daemon
-// (launchCursorBootstrap). Every later message already knows the chat id
-// upfront (resumeChatID, from ps.id) and gets full restart continuity via
-// spawnRunner, same as Claude Code. This narrow gap for the bootstrap turn
-// is an accepted, low-stakes one: cursor-agent's own --resume semantics
-// pick a mid-turn loss back up on the very next message regardless of what
-// happened to the process that was running it.
-func (m *Manager) launchCursor(ctx context.Context, ps *pilotSession, spec LaunchSpec, resumeChatID string) error {
-	ps.provider = model.ProviderCursor
-	ps.cwd = spec.Cwd
-	ps.branch = spec.Branch
-	ps.model = spec.Model
-
-	if resumeChatID == "" {
-		return m.launchCursorBootstrap(ctx, ps, spec)
+// createCursor leaves a brand-new Cursor character asleep with nothing
+// spawned — cursor-agent has no idle-process concept, every turn is its own
+// one-shot invocation, so there is nothing to sit attached with nothing to
+// do. A prompt, if given, wakes it immediately via deliverCursor.
+func (m *Manager) createCursor(ctx context.Context, pc *pilotChar, prompt string) error {
+	m.upsert(ctx, pc, model.ActivityReady, "")
+	if prompt == "" {
+		return nil
 	}
+	return m.deliverCursor(ctx, pc, prompt)
+}
 
-	ps.id = resumeChatID
-	if err := m.spawnRunner(ps, []string{"--prompt", spec.Prompt}); err != nil {
+// deliverCursor starts one cursor-agent turn via a fresh pilot-runner —
+// cursor-agent assigns its own chat id on the very first turn (there is
+// nothing yet to --resume), which pilot-runner reports back on its init
+// line and recordSessionID captures; every later turn passes that id along
+// so the CLI's own --resume continues the same chat.
+func (m *Manager) deliverCursor(ctx context.Context, pc *pilotChar, text string) error {
+	ch, _, err := m.store.GetCharacter(ctx, pc.id)
+	if err != nil {
 		return err
 	}
-	if spec.Prompt != "" {
-		m.emit(ctx, ps, Event{Kind: EventUser, Text: spec.Prompt})
+	extra := []string{"--prompt", text}
+	if ch.SessionID != "" {
+		extra = append(extra, "--provider-session", ch.SessionID)
 	}
-	m.upsert(ctx, ps, model.StateWorking, "")
+	if err := m.spawnRunner(pc, extra); err != nil {
+		return err
+	}
+	m.emit(ctx, pc, Event{Kind: EventUser, Text: text})
+	m.upsert(ctx, pc, model.ActivityWorking, "")
 	return nil
-}
-
-// launchCursorBootstrap runs cursor-agent directly (real pipes, a normal
-// child of this daemon process) just long enough to learn the session id it
-// assigns itself — confirmed live against the installed CLI: --force/--yolo
-// is the only way a Cursor piloted session can get work done without a live
-// permission gate, and every message is its own process chained by
-// --resume/--continue rather than a persistent stdin channel.
-func (m *Manager) launchCursorBootstrap(ctx context.Context, ps *pilotSession, spec LaunchSpec) error {
-	args := []string{"-p", "--output-format", "stream-json", "--force", "--trust", "--workspace", spec.Cwd}
-	args = append(args, modelArgs(spec.Model)...)
-	if spec.Prompt != "" {
-		args = append(args, spec.Prompt)
-	}
-	cmd := exec.Command("agent", args...)
-	cmd.Dir = spec.Cwd
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("cursor agent stdout pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start cursor agent: %w", err)
-	}
-
-	ps.mu.Lock()
-	ps.bootstrapCmd = cmd
-	ps.running = true
-	ps.stoppedByUser = false
-	ps.mu.Unlock()
-
-	reader := bufio.NewReader(stdout)
-
-	firstLine, err := readLineWithTimeout(reader, 15*time.Second)
-	if err != nil {
-		cmd.Process.Kill()
-		return fmt.Errorf("read cursor agent init line: %w", err)
-	}
-	var sys struct {
-		SessionID string `json:"session_id"`
-	}
-	_ = json.Unmarshal(firstLine, &sys)
-	if sys.SessionID == "" {
-		cmd.Process.Kill()
-		return fmt.Errorf("cursor agent did not report a session_id on startup")
-	}
-	ps.id = sys.SessionID
-	m.mu.Lock()
-	m.sessions[ps.id] = ps
-	m.mu.Unlock()
-	if len(firstLine) > 0 {
-		m.handleCursorLine(ctx, ps, firstLine)
-	}
-
-	if spec.Prompt != "" {
-		m.emit(ctx, ps, Event{Kind: EventUser, Text: spec.Prompt})
-	}
-	m.upsert(ctx, ps, model.StateWorking, "")
-
-	go m.readCursorBootstrapStdout(ps, reader)
-	return nil
-}
-
-// sendCursorMessage starts a new turn chained to the existing chat via
-// --resume — see launchCursor's doc comment for why this can't just write
-// to a running process's stdin the way Claude Code does.
-func (m *Manager) sendCursorMessage(ctx context.Context, ps *pilotSession, text string) error {
-	ps.mu.Lock()
-	running := ps.running
-	ps.mu.Unlock()
-	if running {
-		return ErrTurnInProgress
-	}
-	spec := LaunchSpec{Provider: model.ProviderCursor, Cwd: ps.cwd, Branch: ps.branch, Model: ps.model, Prompt: text}
-	return m.launchCursor(ctx, ps, spec, ps.id)
-}
-
-// readLineWithTimeout reads one line without blocking Launch forever if the
-// CLI never produces output (bad workspace, hung auth, ...). The read
-// goroutine is left running on timeout — it unblocks once the caller kills
-// the process, which is what every timeout path here does.
-func readLineWithTimeout(r *bufio.Reader, timeout time.Duration) ([]byte, error) {
-	type result struct {
-		line []byte
-		err  error
-	}
-	ch := make(chan result, 1)
-	go func() {
-		line, err := r.ReadBytes('\n')
-		ch <- result{line, err}
-	}()
-	select {
-	case res := <-ch:
-		return bytes.TrimSpace(res.line), res.err
-	case <-time.After(timeout):
-		return nil, fmt.Errorf("timed out waiting for output")
-	}
 }
 
 type cursorAssistantLine struct {
@@ -171,19 +71,22 @@ func cursorToolName(raw json.RawMessage) string {
 
 // handleCursorLine turns one raw stream-json line from cursor-agent's stdout
 // (relayed live by pilot-runner, or replayed from its durable transcript on
-// reconnect, or read directly during the bootstrap turn) into transcript
-// events and session state transitions.
-func (m *Manager) handleCursorLine(ctx context.Context, ps *pilotSession, line []byte) {
+// reconnect) into transcript events and activity transitions.
+func (m *Manager) handleCursorLine(ctx context.Context, pc *pilotChar, line []byte) {
 	if len(line) == 0 {
 		return
 	}
 	var probe struct {
-		Type    string `json:"type"`
-		Subtype string `json:"subtype"`
+		Type      string `json:"type"`
+		Subtype   string `json:"subtype"`
+		SessionID string `json:"session_id"`
 	}
 	if err := json.Unmarshal(line, &probe); err != nil {
-		m.emit(ctx, ps, Event{Kind: EventError, Text: string(line)})
+		m.emit(ctx, pc, Event{Kind: EventError, Text: string(line)})
 		return
+	}
+	if probe.SessionID != "" {
+		m.recordSessionID(ctx, pc, probe.SessionID)
 	}
 
 	switch probe.Type {
@@ -192,7 +95,7 @@ func (m *Manager) handleCursorLine(ctx context.Context, ps *pilotSession, line [
 
 	case "system":
 		if probe.Subtype == "init" {
-			m.emit(ctx, ps, Event{Kind: EventSystem, Text: "session started"})
+			m.emit(ctx, pc, Event{Kind: EventSystem, Text: "session started"})
 		}
 
 	case "assistant":
@@ -204,10 +107,10 @@ func (m *Manager) handleCursorLine(ctx context.Context, ps *pilotSession, line [
 			if block.Type != "text" || block.Text == "" {
 				continue
 			}
-			ps.mu.Lock()
-			ps.lastText = block.Text
-			ps.mu.Unlock()
-			m.emit(ctx, ps, Event{Kind: EventAssistant, Text: block.Text})
+			pc.mu.Lock()
+			pc.lastText = block.Text
+			pc.mu.Unlock()
+			m.emit(ctx, pc, Event{Kind: EventAssistant, Text: block.Text})
 		}
 
 	case "tool_call":
@@ -221,7 +124,7 @@ func (m *Manager) handleCursorLine(ctx context.Context, ps *pilotSession, line [
 		if err := json.Unmarshal(line, &t); err != nil {
 			return
 		}
-		m.emit(ctx, ps, Event{Kind: EventToolCall, ToolName: cursorToolName(t.ToolCall), ToolInput: t.ToolCall, RequestID: t.CallID})
+		m.emit(ctx, pc, Event{Kind: EventToolCall, ToolName: cursorToolName(t.ToolCall), ToolInput: t.ToolCall, RequestID: t.CallID})
 
 	case "thinking":
 		// Streamed reasoning deltas — too noisy for a chat transcript, same
@@ -233,48 +136,20 @@ func (m *Manager) handleCursorLine(ctx context.Context, ps *pilotSession, line [
 			Result  string `json:"result"`
 		}
 		_ = json.Unmarshal(line, &r)
-		ps.mu.Lock()
-		lastText := ps.lastText
-		ps.mu.Unlock()
+		pc.mu.Lock()
+		lastText := pc.lastText
+		pc.mu.Unlock()
 		if r.Result != "" {
 			lastText = r.Result
 		}
 		if r.IsError {
-			m.upsert(ctx, ps, model.StateFailed, lastText)
+			m.afterTurn(ctx, pc, func() { m.upsert(ctx, pc, model.ActivityFailed, lastText) })
 			return
 		}
-		m.upsert(ctx, ps, m.classify(lastText), lastText)
+		activity, unread := m.classify(lastText)
+		m.afterTurn(ctx, pc, func() { m.finishQuest(ctx, pc, activity, lastText, unread) })
 
 	default:
-		m.emit(ctx, ps, Event{Kind: EventSystem, Text: string(line)})
+		m.emit(ctx, pc, Event{Kind: EventSystem, Text: string(line)})
 	}
-}
-
-// readCursorBootstrapStdout drains the first, not-yet-detached cursor-agent
-// turn's stdout directly — see launchCursorBootstrap. Every later turn is
-// read via readFromRunner instead.
-func (m *Manager) readCursorBootstrapStdout(ps *pilotSession, reader *bufio.Reader) {
-	ctx := context.Background()
-	for {
-		line, err := reader.ReadBytes('\n')
-		line = bytes.TrimSpace(line)
-		if len(line) > 0 {
-			m.handleCursorLine(ctx, ps, line)
-		}
-		if err != nil {
-			break
-		}
-	}
-
-	ps.mu.Lock()
-	cmd := ps.bootstrapCmd
-	ps.bootstrapCmd = nil
-	ps.running = false
-	ps.mu.Unlock()
-
-	var waitErr error
-	if cmd != nil {
-		waitErr = cmd.Wait()
-	}
-	m.finalizeProcess(ctx, ps, waitErr)
 }

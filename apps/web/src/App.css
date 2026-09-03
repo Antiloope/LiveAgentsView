@@ -305,7 +305,7 @@ time,
   align-items: center;
   gap: 4px;
 }
-.quest-token .mini-provider .provider-rune {
+.quest-token .mini-provider .race-rune {
   width: 9px;
   height: 9px;
 }
@@ -535,7 +535,14 @@ time,
   border-color: var(--gold-bright);
   box-shadow: 0 0 0 2px var(--gold-bright);
 }
-.provider-rune {
+.unread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex: 0 0 auto;
+}
+.race-rune {
   width: 11px;
   height: 11px;
 }
@@ -710,6 +717,15 @@ time,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.drawer-header-text .class-badge {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 6px;
+  font-size: 0.62rem;
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  background: rgba(0, 0, 0, 0.25);
 }
 .drawer-close {
   background: none;
@@ -1277,7 +1293,8 @@ time,
   background: none;
   border: none;
 }
-select.trail {
+select.trail,
+input.trail {
   width: 100%;
   border: 2px solid var(--ink-soft);
   background: #fff8e8;
@@ -1285,6 +1302,15 @@ select.trail {
   font-size: 0.76rem;
   color: var(--ink);
   font-family: inherit;
+}
+.territory-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.territory-hint.warn {
+  color: var(--danger);
 }
 textarea.recruit-prompt {
   width: 100%;

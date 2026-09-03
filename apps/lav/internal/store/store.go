@@ -1,5 +1,5 @@
-// Package store persists sessions and their event history to SQLite so the
-// daemon survives restarts without losing state.
+// Package store persists characters and their event history to SQLite so
+// the daemon survives restarts without losing state.
 package store
 
 import (
@@ -35,200 +35,268 @@ func Open(path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) migrate(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `
-CREATE TABLE IF NOT EXISTS sessions (
+const createCharactersSQL = `
+CREATE TABLE IF NOT EXISTS characters (
 	id TEXT PRIMARY KEY,
-	provider TEXT NOT NULL,
-	fidelity TEXT NOT NULL,
-	cwd TEXT NOT NULL DEFAULT '',
+	session_id TEXT NOT NULL DEFAULT '',
+	race TEXT NOT NULL,
+	class TEXT NOT NULL DEFAULT '',
+	activity TEXT NOT NULL,
+	unread INTEGER NOT NULL DEFAULT 0,
+	territory_mode TEXT NOT NULL DEFAULT '',
+	territory_path TEXT NOT NULL DEFAULT '',
+	territory_source TEXT NOT NULL DEFAULT '',
+	territory_branch TEXT NOT NULL DEFAULT '',
 	repo TEXT NOT NULL DEFAULT '',
-	branch TEXT NOT NULL DEFAULT '',
-	worktree TEXT NOT NULL DEFAULT '',
-	model TEXT NOT NULL DEFAULT '',
-	state TEXT NOT NULL,
-	last_message TEXT NOT NULL DEFAULT '',
 	archived INTEGER NOT NULL DEFAULT 0,
+	last_message TEXT NOT NULL DEFAULT '',
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL
-);
+)`
 
+const createEventsSQL = `
 CREATE TABLE IF NOT EXISTS events (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	session_id TEXT NOT NULL,
-	provider TEXT NOT NULL,
+	character_id TEXT NOT NULL,
+	race TEXT NOT NULL,
 	hook_event TEXT NOT NULL DEFAULT '',
-	state TEXT NOT NULL DEFAULT '',
+	activity TEXT NOT NULL DEFAULT '',
 	raw TEXT NOT NULL DEFAULT '',
 	received_at DATETIME NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_events_character ON events(character_id, received_at)`
 
-CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id, received_at);
-`)
+// migrate brings a database to the current "characters" schema. A brand-new
+// database just gets the tables created. A database still on the old
+// "sessions" schema (provider/model/cwd/state) is migrated in place: renamed
+// out of the way, the new tables created under the final names, its rows
+// copied across with the field remapping the character-model redesign
+// decided (provider→race, model→class, cwd→territory with mode "shared",
+// state→activity with done→ready+unread and blocked→waiting), then dropped
+// — all inside one transaction, so a database already on the new schema
+// (checked first) makes this whole function a no-op and a crash mid-migration
+// never leaves a half-renamed database.
+func (s *Store) migrate(ctx context.Context) error {
+	hasCharacters, err := s.tableExists(ctx, "characters")
 	if err != nil {
-		return fmt.Errorf("migrate: %w", err)
+		return fmt.Errorf("check schema: %w", err)
 	}
-	if err := s.ensureColumn(ctx, "archived", `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`); err != nil {
-		return err
+	if hasCharacters {
+		return nil
 	}
-	if err := s.ensureColumn(ctx, "model", `ALTER TABLE sessions ADD COLUMN model TEXT NOT NULL DEFAULT ''`); err != nil {
-		return err
-	}
-	return s.purgeNonDriverSessions(ctx)
-}
-
-// ensureColumn adds a sessions column via alterSQL for a database that
-// predates it — CREATE TABLE IF NOT EXISTS above only covers a brand-new
-// database. Safe to run on every startup: a no-op once a database already
-// has the column.
-func (s *Store) ensureColumn(ctx context.Context, name, alterSQL string) error {
-	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(sessions)`)
+	hasSessions, err := s.tableExists(ctx, "sessions")
 	if err != nil {
-		return fmt.Errorf("inspect sessions columns: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var (
-			cid, notnull, pk int
-			colName, colType string
-			dflt             sql.NullString
-		)
-		if err := rows.Scan(&cid, &colName, &colType, &notnull, &dflt, &pk); err != nil {
-			return fmt.Errorf("scan sessions column: %w", err)
-		}
-		if colName == name {
-			return rows.Err()
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("inspect sessions columns: %w", err)
+		return fmt.Errorf("check schema: %w", err)
 	}
 
-	if _, err := s.db.ExecContext(ctx, alterSQL); err != nil {
-		return fmt.Errorf("add sessions.%s column: %w", name, err)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin migration: %w", err)
 	}
-	return nil
+	defer tx.Rollback()
+
+	if hasSessions {
+		if _, err := tx.ExecContext(ctx, `ALTER TABLE sessions RENAME TO sessions_old`); err != nil {
+			return fmt.Errorf("rename sessions table: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `ALTER TABLE events RENAME TO events_old`); err != nil {
+			return fmt.Errorf("rename events table: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, createCharactersSQL); err != nil {
+		return fmt.Errorf("create characters table: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, createEventsSQL); err != nil {
+		return fmt.Errorf("create events table: %w", err)
+	}
+
+	if hasSessions {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO characters (id, session_id, race, class, activity, unread, territory_mode, territory_path, territory_source, territory_branch, repo, archived, last_message, created_at, updated_at)
+SELECT
+	id, id, provider, model,
+	CASE state
+		WHEN 'working' THEN 'working'
+		WHEN 'waiting' THEN 'waiting'
+		WHEN 'blocked' THEN 'waiting'
+		WHEN 'done' THEN 'ready'
+		WHEN 'idle' THEN 'ready'
+		WHEN 'failed' THEN 'failed'
+		ELSE 'ready'
+	END,
+	CASE WHEN state = 'done' THEN 1 ELSE 0 END,
+	'shared', cwd, cwd, branch, repo, archived, last_message, created_at, updated_at
+FROM sessions_old`); err != nil {
+			return fmt.Errorf("copy sessions into characters: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO events (character_id, race, hook_event, activity, raw, received_at)
+SELECT session_id, provider, hook_event, state, raw, received_at FROM events_old`); err != nil {
+			return fmt.Errorf("copy events: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `DROP TABLE sessions_old`); err != nil {
+			return fmt.Errorf("drop sessions_old: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `DROP TABLE events_old`); err != nil {
+			return fmt.Errorf("drop events_old: %w", err)
+		}
+	}
+
+	return tx.Commit()
 }
 
-// purgeNonDriverSessions removes hooks/tailing-fidelity rows left over from
-// before piloted-only mode — adopted sessions are no longer a concept this
-// app tracks. Safe to run on every startup: a no-op once the first run after
-// upgrading has cleared them.
-func (s *Store) purgeNonDriverSessions(ctx context.Context) error {
-	if _, err := s.db.ExecContext(ctx, `
-DELETE FROM events WHERE session_id IN (SELECT id FROM sessions WHERE fidelity != ?)`,
-		string(model.FidelityDriver)); err != nil {
-		return fmt.Errorf("purge non-driver events: %w", err)
+func (s *Store) tableExists(ctx context.Context, name string) (bool, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, name).Scan(&n)
+	if err != nil {
+		return false, err
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE fidelity != ?`, string(model.FidelityDriver)); err != nil {
-		return fmt.Errorf("purge non-driver sessions: %w", err)
-	}
-	return nil
+	return n > 0, nil
 }
 
-// UpsertSession creates or updates a session. Fields that arrive empty on an
-// update (Repo/Branch/Worktree/LastMessage — not every hook payload carries
-// all of them) do not clobber a previously known value. Archived is
-// deliberately absent from the UPDATE branch: every caller of this method
-// (pilot.Manager.upsert on every state change, ReconcileOnStartup) builds
-// its model.Session from scratch with Archived left at its Go zero value, so
-// touching that column here would silently unarchive a session the moment
-// its process next reports state — only SetArchived is allowed to change it.
-func (s *Store) UpsertSession(ctx context.Context, sess model.Session) error {
+// UpsertCharacter creates or updates a character. Fields that arrive empty
+// on an update (SessionID/Class/Territory/Repo/LastMessage — not every
+// caller knows all of them at every point) do not clobber a previously
+// known value. Archived and Unread are deliberately absent from the UPDATE
+// branch — SetArchived and SetUnread are the only paths allowed to change
+// them, so a routine activity upsert can never silently flip either back.
+func (s *Store) UpsertCharacter(ctx context.Context, ch model.Character) error {
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO sessions (id, provider, fidelity, cwd, repo, branch, worktree, model, state, last_message, archived, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO characters (id, session_id, race, class, activity, unread, territory_mode, territory_path, territory_source, territory_branch, repo, archived, last_message, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
-	provider = excluded.provider,
-	fidelity = excluded.fidelity,
-	cwd = CASE WHEN excluded.cwd != '' THEN excluded.cwd ELSE sessions.cwd END,
-	repo = CASE WHEN excluded.repo != '' THEN excluded.repo ELSE sessions.repo END,
-	branch = CASE WHEN excluded.branch != '' THEN excluded.branch ELSE sessions.branch END,
-	worktree = CASE WHEN excluded.worktree != '' THEN excluded.worktree ELSE sessions.worktree END,
-	model = CASE WHEN excluded.model != '' THEN excluded.model ELSE sessions.model END,
-	state = excluded.state,
-	last_message = CASE WHEN excluded.last_message != '' THEN excluded.last_message ELSE sessions.last_message END,
+	session_id = CASE WHEN excluded.session_id != '' THEN excluded.session_id ELSE characters.session_id END,
+	race = excluded.race,
+	class = CASE WHEN excluded.class != '' THEN excluded.class ELSE characters.class END,
+	activity = excluded.activity,
+	territory_mode = CASE WHEN excluded.territory_mode != '' THEN excluded.territory_mode ELSE characters.territory_mode END,
+	territory_path = CASE WHEN excluded.territory_path != '' THEN excluded.territory_path ELSE characters.territory_path END,
+	territory_source = CASE WHEN excluded.territory_source != '' THEN excluded.territory_source ELSE characters.territory_source END,
+	territory_branch = CASE WHEN excluded.territory_branch != '' THEN excluded.territory_branch ELSE characters.territory_branch END,
+	repo = CASE WHEN excluded.repo != '' THEN excluded.repo ELSE characters.repo END,
+	last_message = CASE WHEN excluded.last_message != '' THEN excluded.last_message ELSE characters.last_message END,
 	updated_at = excluded.updated_at
 `,
-		sess.ID, string(sess.Provider), string(sess.Fidelity), sess.Cwd, sess.Repo, sess.Branch, sess.Worktree, sess.Model,
-		string(sess.State), sess.LastMessage, sess.Archived, sess.CreatedAt, sess.UpdatedAt,
+		ch.ID, ch.SessionID, string(ch.Race), string(ch.Class), string(ch.Activity), ch.Unread,
+		string(ch.Territory.Mode), ch.Territory.Path, ch.Territory.Source, ch.Territory.Branch,
+		ch.Repo, ch.Archived, ch.LastMessage, ch.CreatedAt, ch.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("upsert session %s: %w", sess.ID, err)
+		return fmt.Errorf("upsert character %s: %w", ch.ID, err)
 	}
 	return nil
 }
 
-// SetArchived is the only path allowed to change a session's archived flag —
-// see UpsertSession's doc comment for why that method itself must never
-// touch it. Returns false if no session with this id exists.
-func (s *Store) SetArchived(ctx context.Context, id string, archived bool) (model.Session, bool, error) {
-	res, err := s.db.ExecContext(ctx, `UPDATE sessions SET archived = ?, updated_at = ? WHERE id = ?`,
+// SetArchived is the only path allowed to change a character's archived
+// flag — see UpsertCharacter's doc comment for why. Returns false if no
+// character with this id exists.
+func (s *Store) SetArchived(ctx context.Context, id string, archived bool) (model.Character, bool, error) {
+	res, err := s.db.ExecContext(ctx, `UPDATE characters SET archived = ?, updated_at = ? WHERE id = ?`,
 		archived, time.Now().UTC(), id)
 	if err != nil {
-		return model.Session{}, false, fmt.Errorf("set archived for session %s: %w", id, err)
+		return model.Character{}, false, fmt.Errorf("set archived for character %s: %w", id, err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return model.Session{}, false, nil
+		return model.Character{}, false, nil
 	}
-	return s.GetSession(ctx, id)
+	return s.GetCharacter(ctx, id)
 }
 
-func (s *Store) GetSession(ctx context.Context, id string) (model.Session, bool, error) {
-	row := s.db.QueryRowContext(ctx, `
-SELECT id, provider, fidelity, cwd, repo, branch, worktree, model, state, last_message, archived, created_at, updated_at
-FROM sessions WHERE id = ?`, id)
+// SetUnread is the only path allowed to change a character's unread mark —
+// set when a quest ends without a question, cleared by the interface's
+// explicit "read" call, never by any other activity change. Returns false
+// if no character with this id exists.
+func (s *Store) SetUnread(ctx context.Context, id string, unread bool) (model.Character, bool, error) {
+	res, err := s.db.ExecContext(ctx, `UPDATE characters SET unread = ?, updated_at = ? WHERE id = ?`,
+		unread, time.Now().UTC(), id)
+	if err != nil {
+		return model.Character{}, false, fmt.Errorf("set unread for character %s: %w", id, err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return model.Character{}, false, nil
+	}
+	return s.GetCharacter(ctx, id)
+}
 
-	sess, err := scanSession(row)
+// SetSessionID records the provider's own conversation id the first time it
+// is reported — a no-op once already set, so it is never overwritten.
+func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE characters SET session_id = ?, updated_at = ? WHERE id = ? AND session_id = ''`,
+		sessionID, time.Now().UTC(), id)
+	if err != nil {
+		return fmt.Errorf("set session id for character %s: %w", id, err)
+	}
+	return nil
+}
+
+// DeleteCharacter removes a character's row and its events — the
+// persistence half of dismissing it. Returns false if no character with
+// this id exists.
+func (s *Store) DeleteCharacter(ctx context.Context, id string) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM characters WHERE id = ?`, id)
+	if err != nil {
+		return false, fmt.Errorf("delete character %s: %w", id, err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return false, nil
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM events WHERE character_id = ?`, id); err != nil {
+		return true, fmt.Errorf("delete events for character %s: %w", id, err)
+	}
+	return true, nil
+}
+
+func (s *Store) GetCharacter(ctx context.Context, id string) (model.Character, bool, error) {
+	row := s.db.QueryRowContext(ctx, characterSelect+`WHERE id = ?`, id)
+	ch, err := scanCharacter(row)
 	if err == sql.ErrNoRows {
-		return model.Session{}, false, nil
+		return model.Character{}, false, nil
 	}
 	if err != nil {
-		return model.Session{}, false, fmt.Errorf("get session %s: %w", id, err)
+		return model.Character{}, false, fmt.Errorf("get character %s: %w", id, err)
 	}
-	return sess, true, nil
+	return ch, true, nil
 }
 
-func (s *Store) ListSessions(ctx context.Context) ([]model.Session, error) {
-	rows, err := s.db.QueryContext(ctx, `
-SELECT id, provider, fidelity, cwd, repo, branch, worktree, model, state, last_message, archived, created_at, updated_at
-FROM sessions ORDER BY updated_at DESC`)
+func (s *Store) ListCharacters(ctx context.Context) ([]model.Character, error) {
+	rows, err := s.db.QueryContext(ctx, characterSelect+`ORDER BY updated_at DESC`)
 	if err != nil {
-		return nil, fmt.Errorf("list sessions: %w", err)
+		return nil, fmt.Errorf("list characters: %w", err)
 	}
 	defer rows.Close()
 
-	out := []model.Session{}
+	out := []model.Character{}
 	for rows.Next() {
-		sess, err := scanSession(rows)
+		ch, err := scanCharacter(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan session: %w", err)
+			return nil, fmt.Errorf("scan character: %w", err)
 		}
-		out = append(out, sess)
+		out = append(out, ch)
 	}
 	return out, rows.Err()
 }
 
-func (s *Store) AppendEvent(ctx context.Context, sessionID string, provider model.Provider, hookEvent string, state model.State, raw string) error {
+func (s *Store) AppendEvent(ctx context.Context, characterID string, race model.Race, hookEvent string, activity model.Activity, raw string) error {
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO events (session_id, provider, hook_event, state, raw, received_at)
+INSERT INTO events (character_id, race, hook_event, activity, raw, received_at)
 VALUES (?, ?, ?, ?, ?, ?)`,
-		sessionID, string(provider), hookEvent, string(state), raw, time.Now().UTC(),
+		characterID, string(race), hookEvent, string(activity), raw, time.Now().UTC(),
 	)
 	if err != nil {
-		return fmt.Errorf("append event for session %s: %w", sessionID, err)
+		return fmt.Errorf("append event for character %s: %w", characterID, err)
 	}
 	return nil
 }
 
-// ListEvents returns a session's events oldest first — the shape a
-// transcript replays in, unlike ListSessions's most-recently-updated order.
-func (s *Store) ListEvents(ctx context.Context, sessionID string) ([]string, error) {
+// ListEvents returns a character's events oldest first — the shape a
+// transcript replays in, unlike ListCharacters's most-recently-updated
+// order.
+func (s *Store) ListEvents(ctx context.Context, characterID string) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT raw FROM events WHERE session_id = ? ORDER BY received_at ASC, id ASC`, sessionID)
+SELECT raw FROM events WHERE character_id = ? ORDER BY received_at ASC, id ASC`, characterID)
 	if err != nil {
-		return nil, fmt.Errorf("list events for session %s: %w", sessionID, err)
+		return nil, fmt.Errorf("list events for character %s: %w", characterID, err)
 	}
 	defer rows.Close()
 
@@ -236,7 +304,7 @@ SELECT raw FROM events WHERE session_id = ? ORDER BY received_at ASC, id ASC`, s
 	for rows.Next() {
 		var raw string
 		if err := rows.Scan(&raw); err != nil {
-			return nil, fmt.Errorf("scan event for session %s: %w", sessionID, err)
+			return nil, fmt.Errorf("scan event for character %s: %w", characterID, err)
 		}
 		out = append(out, raw)
 	}
@@ -248,18 +316,24 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanSession(row rowScanner) (model.Session, error) {
-	var sess model.Session
-	var provider, fidelity, state string
+const characterSelect = `
+SELECT id, session_id, race, class, activity, unread, territory_mode, territory_path, territory_source, territory_branch, repo, archived, last_message, created_at, updated_at
+FROM characters `
+
+func scanCharacter(row rowScanner) (model.Character, error) {
+	var ch model.Character
+	var race, class, activity, territoryMode string
 	err := row.Scan(
-		&sess.ID, &provider, &fidelity, &sess.Cwd, &sess.Repo, &sess.Branch, &sess.Worktree, &sess.Model,
-		&state, &sess.LastMessage, &sess.Archived, &sess.CreatedAt, &sess.UpdatedAt,
+		&ch.ID, &ch.SessionID, &race, &class, &activity, &ch.Unread,
+		&territoryMode, &ch.Territory.Path, &ch.Territory.Source, &ch.Territory.Branch,
+		&ch.Repo, &ch.Archived, &ch.LastMessage, &ch.CreatedAt, &ch.UpdatedAt,
 	)
 	if err != nil {
-		return model.Session{}, err
+		return model.Character{}, err
 	}
-	sess.Provider = model.Provider(provider)
-	sess.Fidelity = model.Fidelity(fidelity)
-	sess.State = model.State(state)
-	return sess, nil
+	ch.Race = model.Race(race)
+	ch.Class = model.Class(class)
+	ch.Activity = model.Activity(activity)
+	ch.Territory.Mode = model.TerritoryMode(territoryMode)
+	return ch, nil
 }

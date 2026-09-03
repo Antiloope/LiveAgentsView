@@ -38,7 +38,7 @@ func TestSecure_ProtectsRoutesAddedLater(t *testing.T) {
 }
 
 func TestSecure_RejectsCrossOrigin(t *testing.T) {
-	req := newRequest(http.MethodGet, "/api/sessions")
+	req := newRequest(http.MethodGet, "/api/characters")
 	req.Header.Set("Origin", "https://evil.example")
 	rec := httptest.NewRecorder()
 	secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -49,7 +49,7 @@ func TestSecure_RejectsCrossOrigin(t *testing.T) {
 
 func TestSecure_AllowsOwnOrigins(t *testing.T) {
 	for _, origin := range []string{"http://127.0.0.1:8420", "http://localhost:8420", "http://[::1]:8420"} {
-		req := newRequest(http.MethodGet, "/api/sessions")
+		req := newRequest(http.MethodGet, "/api/characters")
 		req.Header.Set("Origin", origin)
 		rec := httptest.NewRecorder()
 		secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -61,7 +61,7 @@ func TestSecure_AllowsOwnOrigins(t *testing.T) {
 
 func TestSecure_RejectsCrossSiteSecFetchSite(t *testing.T) {
 	for _, v := range []string{"cross-site", "same-site"} {
-		req := newRequest(http.MethodGet, "/api/sessions")
+		req := newRequest(http.MethodGet, "/api/characters")
 		req.Header.Set("Sec-Fetch-Site", v)
 		rec := httptest.NewRecorder()
 		secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -73,7 +73,7 @@ func TestSecure_RejectsCrossSiteSecFetchSite(t *testing.T) {
 
 func TestSecure_AllowsSameOriginOrAbsentSecFetchSite(t *testing.T) {
 	for _, v := range []string{"same-origin", "none", ""} {
-		req := newRequest(http.MethodGet, "/api/sessions")
+		req := newRequest(http.MethodGet, "/api/characters")
 		if v != "" {
 			req.Header.Set("Sec-Fetch-Site", v)
 		}
@@ -89,7 +89,7 @@ func TestSecure_AllowsSameOriginOrAbsentSecFetchSite(t *testing.T) {
 // 127.0.0.1, so the browser believes it is same-origin and sends a Host
 // the attacker's DNS chose rather than one the daemon recognizes.
 func TestSecure_RejectsDNSRebindingHost(t *testing.T) {
-	req := newRequest(http.MethodGet, "/api/sessions")
+	req := newRequest(http.MethodGet, "/api/characters")
 	req.Host = "evil.example"
 	rec := httptest.NewRecorder()
 	secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -100,7 +100,7 @@ func TestSecure_RejectsDNSRebindingHost(t *testing.T) {
 
 func TestSecure_AllowsLoopbackHosts(t *testing.T) {
 	for _, host := range []string{"127.0.0.1:8420", "localhost:8420", "[::1]:8420"} {
-		req := newRequest(http.MethodGet, "/api/sessions")
+		req := newRequest(http.MethodGet, "/api/characters")
 		req.Host = host
 		rec := httptest.NewRecorder()
 		secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -119,7 +119,7 @@ func TestSecure_RejectsNonJSONContentTypeWithoutDecoding(t *testing.T) {
 		decoded = true
 		w.WriteHeader(http.StatusOK)
 	})
-	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8420/api/piloted/sessions", strings.NewReader(`{"provider":"cursor"}`))
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8420/api/characters", strings.NewReader(`{"race":"cursor"}`))
 	req.Host = "127.0.0.1:8420"
 	req.Header.Set("Content-Type", "text/plain")
 	req.Header.Set(clientHeader, "1")
@@ -134,7 +134,7 @@ func TestSecure_RejectsNonJSONContentTypeWithoutDecoding(t *testing.T) {
 }
 
 func TestSecure_RejectsBodyWithNoContentType(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8420/api/piloted/sessions", strings.NewReader(`{}`))
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8420/api/characters", strings.NewReader(`{}`))
 	req.Host = "127.0.0.1:8420"
 	req.Header.Set(clientHeader, "1")
 	rec := httptest.NewRecorder()
@@ -145,7 +145,7 @@ func TestSecure_RejectsBodyWithNoContentType(t *testing.T) {
 }
 
 func TestSecure_AllowsJSONContentType(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8420/api/piloted/sessions", strings.NewReader(`{}`))
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8420/api/characters", strings.NewReader(`{}`))
 	req.Host = "127.0.0.1:8420"
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(clientHeader, "1")
@@ -158,7 +158,7 @@ func TestSecure_AllowsJSONContentType(t *testing.T) {
 
 func TestSecure_RequiresClientHeaderOnMutatingMethods(t *testing.T) {
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
-		req := newRequest(method, "/api/piloted/sessions/abc/cancel")
+		req := newRequest(method, "/api/characters/abc/stop")
 		rec := httptest.NewRecorder()
 		secure(testConfig(), okHandler()).ServeHTTP(rec, req)
 		if rec.Code != http.StatusForbidden {
@@ -170,7 +170,7 @@ func TestSecure_RequiresClientHeaderOnMutatingMethods(t *testing.T) {
 // GET requests, including the two SSE streams, never carry the client
 // header — EventSource cannot set one — so they must not require it.
 func TestSecure_GetNeverNeedsClientHeader(t *testing.T) {
-	for _, path := range []string{"/healthz", "/api/sessions", "/api/events/stream", "/api/piloted/sessions/abc/stream"} {
+	for _, path := range []string{"/healthz", "/api/characters", "/api/events/stream", "/api/characters/abc/stream"} {
 		req := newRequest(http.MethodGet, path)
 		rec := httptest.NewRecorder()
 		secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -181,7 +181,7 @@ func TestSecure_GetNeverNeedsClientHeader(t *testing.T) {
 }
 
 func TestSecure_LegitimateMutatingRequestPasses(t *testing.T) {
-	req := newRequest(http.MethodPost, "/api/piloted/sessions/abc/cancel")
+	req := newRequest(http.MethodPost, "/api/characters/abc/stop")
 	req.Header.Set(clientHeader, "1")
 	req.Header.Set("Origin", "http://localhost:8420")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
@@ -195,7 +195,7 @@ func TestSecure_LegitimateMutatingRequestPasses(t *testing.T) {
 // A rejection must be a diagnosable 403/415 with a reason, not a silent
 // drop that leaves a misconfigured legitimate client guessing.
 func TestSecure_RejectionBodyExplainsWhy(t *testing.T) {
-	req := newRequest(http.MethodGet, "/api/sessions")
+	req := newRequest(http.MethodGet, "/api/characters")
 	req.Header.Set("Origin", "https://evil.example")
 	rec := httptest.NewRecorder()
 	secure(testConfig(), okHandler()).ServeHTTP(rec, req)
@@ -205,7 +205,7 @@ func TestSecure_RejectionBodyExplainsWhy(t *testing.T) {
 }
 
 func TestSecure_NeverAddsCORSHeaders(t *testing.T) {
-	req := newRequest(http.MethodOptions, "/api/sessions")
+	req := newRequest(http.MethodOptions, "/api/characters")
 	req.Header.Set("Origin", "https://evil.example")
 	rec := httptest.NewRecorder()
 	secure(testConfig(), okHandler()).ServeHTTP(rec, req)

@@ -1,4 +1,4 @@
-import type { Provider, State } from './types'
+import type { Activity, Race } from './types'
 
 export interface PixelRect {
   x: number
@@ -107,100 +107,82 @@ export const ARCHETYPES: Record<string, Archetype> = {
 
 export const ARCHETYPE_KEYS = Object.keys(ARCHETYPES)
 
-export const STATE_COLOR: Record<State, string> = {
+export const ACTIVITY_COLOR: Record<Activity, string> = {
+  ready: '#5b9bd8',
   working: '#3ec27a',
   waiting: '#f0a83c',
-  blocked: '#e5473b',
-  done: '#5b9bd8',
   failed: '#a41f2f',
-  idle: '#8a8f85',
 }
 
-export const STATE_LABEL: Record<State, string> = {
+export const ACTIVITY_LABEL: Record<Activity, string> = {
+  ready: 'Ready',
   working: 'Working',
   waiting: 'Waiting',
-  blocked: 'Blocked',
-  done: 'Done',
   failed: 'Failed',
-  idle: 'Idle',
 }
 
-export const PROVIDER_RUNE: Record<Provider, { shape: 'leaf' | 'diamond' | 'triangle'; color: string }> = {
+export const RACE_RUNE: Record<Race, { shape: 'leaf' | 'triangle'; color: string }> = {
   'claude-code': { shape: 'leaf', color: '#d98a3d' },
-  codex: { shape: 'diamond', color: '#6fa8dc' },
   cursor: { shape: 'triangle', color: '#c77dd8' },
 }
 
-export const PROVIDER_LABEL: Record<Provider, string> = {
+export const RACE_LABEL: Record<Race, string> = {
   'claude-code': 'Claude Code',
-  codex: 'Codex',
   cursor: 'Cursor',
 }
 
-export const NEEDS_ATTENTION: State[] = ['waiting', 'blocked', 'failed']
+// A character only ever needs the front row's urgency when it genuinely
+// needs the user — a finished quest is a quiet, grouped unread mark
+// instead (see UNREAD below), never a front-row event of its own.
+export const NEEDS_ATTENTION: Activity[] = ['waiting', 'failed']
 
-// Deterministic pool pick: an archetype stays stable for a given session id
-// across re-renders, but varies session to session, even for the same
-// provider — several agents from the same vendor don't read as clones.
+// Deterministic pool pick: an archetype stays stable for a given character
+// id across re-renders, but varies character to character, even within the
+// same race — several characters of the same race don't read as clones.
 function hash(seed: string): number {
   let h = 0
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
   return h
 }
 
-// Claude Code's three recruit classes always summon the same archetype —
-// matching what the recruit panel's class cards promise ("→ arrives a ...")
-// — everything else (Cursor, or an unrecognized model string) keeps the
-// random per-session-id pick below.
-const CLAUDE_MODEL_ARCHETYPE: Record<string, string> = {
-  opus: 'dragonkin-warrior',
-  sonnet: 'elf-rogue',
-  haiku: 'halfling-cleric',
+// The sprite follows race, never class — changing what class a character
+// runs must not turn it into a different creature. Each race owns a pool of
+// archetypes and the character id hashes into it, so a race still reads as
+// one kind of creature while individuals stay visually distinguishable.
+// Proposal only — the exact visual assignment is the maintainer's call.
+const RACE_ARCHETYPES: Record<Race, string[]> = {
+  'claude-code': ['dragonkin-warrior', 'elf-rogue', 'halfling-cleric'],
+  cursor: ['human-mage', 'dwarf-druid'],
 }
 
-export function archetypeFor(sessionId: string, model?: string): string {
-  if (model && CLAUDE_MODEL_ARCHETYPE[model]) return CLAUDE_MODEL_ARCHETYPE[model]
-  return ARCHETYPE_KEYS[hash(sessionId) % ARCHETYPE_KEYS.length]
+export function archetypeFor(characterId: string, race: Race): string {
+  const pool = RACE_ARCHETYPES[race] ?? ARCHETYPE_KEYS
+  return pool[hash(characterId) % pool.length]
 }
 
-// No token/context field exists on Session yet (see types.ts), so HP/mana
-// are seeded placeholders — stable per session id, not real telemetry.
-export function seededPercent(sessionId: string, salt: string): number {
-  const h = hash(sessionId + salt)
+// No token/context field exists on Character yet (see types.ts), so HP/mana
+// are seeded placeholders — stable per character id, not real telemetry.
+export function seededPercent(characterId: string, salt: string): number {
+  const h = hash(characterId + salt)
   return 15 + (h % 86)
 }
 
 // 5x5 block-icon glyphs (2-unit cells on a 10x10 grid) drawn in the same
 // pixel grammar as the party sprites, replacing unicode/emoji status marks.
-export const STATUS_ICON_CELLS: Partial<Record<State, [number, number][]>> = {
+export const STATUS_ICON_CELLS: Partial<Record<Activity, [number, number][]>> = {
   waiting: [
     [1, 0], [2, 0], [3, 0],
     [0, 1], [4, 1],
     [3, 2], [2, 3],
     [2, 4],
   ],
-  blocked: [
-    [2, 0], [2, 1], [2, 2],
-    [2, 4],
-  ],
-  done: [
-    [0, 2], [1, 3], [2, 4], [3, 2], [4, 0],
-  ],
   failed: [
     [0, 0], [1, 1], [2, 2], [3, 3], [4, 4],
     [4, 0], [3, 1], [1, 3], [0, 4],
   ],
-  idle: [
-    [0, 0], [1, 0], [2, 0], [3, 0],
-    [2, 1], [1, 2],
-    [0, 3], [1, 3], [2, 3], [3, 3],
-  ],
 }
 
-export const STATUS_ICON_BG: Partial<Record<State, string>> = {
+export const STATUS_ICON_BG: Partial<Record<Activity, string>> = {
   waiting: '#f0a83c',
-  blocked: '#e5473b',
-  done: '#5b9bd8',
   failed: '#7a1620',
-  idle: '#8a8f85',
 }

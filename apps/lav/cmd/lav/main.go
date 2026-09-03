@@ -111,8 +111,9 @@ func cmdServe() {
 		log.Fatalf("resolve own binary path: %v", err)
 	}
 
-	srv := daemon.New(st, classifier.NewRules(), webFS, dir, exe)
-	addr := "127.0.0.1:" + port()
+	p := port()
+	srv := daemon.New(st, classifier.NewRules(), webFS, dir, exe, p)
+	addr := "127.0.0.1:" + p
 	log.Printf("lav daemon listening on %s (data: %s)", addr, dir)
 	if err := http.ListenAndServe(addr, srv); err != nil {
 		log.Fatalf("serve: %v", err)

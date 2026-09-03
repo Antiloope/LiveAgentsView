@@ -3,6 +3,7 @@ import type { PilotEvent, Session } from './types'
 import { PROVIDER_LABEL, STATE_COLOR, STATE_LABEL } from './sprites'
 import Portrait from './Portrait'
 import {
+  archiveSession,
   cancelPilotedSession,
   fetchPilotEvents,
   interruptPilotedSession,
@@ -108,14 +109,14 @@ function DrawerContent({
     <>
       <div className="drawer-header">
         <div className="drawer-sprite">
-          <Portrait sessionId={session.id} />
+          <Portrait sessionId={session.id} model={session.model} />
         </div>
         <div className="drawer-header-text">
           <div className="name pixel-face">
             {PROVIDER_LABEL[session.provider]} — {session.repo || session.cwd || session.id}
           </div>
           <div className="repo">{session.branch || session.worktree || session.cwd}</div>
-          <div className="state-pill pixel-face" style={{ background: STATE_COLOR[session.state], color: session.state === 'waiting' || session.state === 'idle' ? '#2a1f14' : '#fff8e8' }}>
+          <div className="state-pill pixel-face" style={{ background: STATE_COLOR[session.state], color: session.state === 'waiting' || session.state === 'idle' ? '#2a1a0c' : '#fff8e8' }}>
             {STATE_LABEL[session.state]}
           </div>
         </div>
@@ -123,7 +124,7 @@ function DrawerContent({
           ✕
         </button>
       </div>
-      <PilotChat session={session} onSessionUpdate={onSessionUpdate} />
+      <PilotChat session={session} onSessionUpdate={onSessionUpdate} onClose={onClose} />
     </>
   )
 }
@@ -131,20 +132,30 @@ function DrawerContent({
 function PilotChat({
   session,
   onSessionUpdate,
+  onClose,
 }: {
   session: Session
   onSessionUpdate: (session: Session) => void
+  onClose: () => void
 }) {
   const [events, setEvents] = useState<PilotEvent[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const composeRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setEvents([])
     fetchPilotEvents(session.id)
-      .then(setEvents)
+      .then((list) => {
+        setEvents(list)
+        // A session with no history yet is exactly what a fresh recruit
+        // looks like (Claude Code seats it at camp with no initial
+        // message) — focus the compose box so the first quest can be
+        // typed right away, same box used for every message after it.
+        if (list.length === 0) composeRef.current?.focus()
+      })
       .catch((err) => setError(String(err)))
     return subscribeToPilotEvents(session.id, (event) => {
       setEvents((prev) => [...prev, event])
@@ -172,6 +183,7 @@ function PilotChat({
   const canSend = isCursor ? session.state !== 'working' : session.state !== 'idle' && session.state !== 'failed'
   const canInterruptOrCancel = isCursor ? session.state === 'working' : canSend
   const canResume = !isCursor && (session.state === 'idle' || session.state === 'failed')
+  const canArchive = session.state !== 'working' && !session.archived
 
   const runAction = useCallback(
     (action: () => Promise<void | Session>) => {
@@ -193,6 +205,18 @@ function PilotChat({
     setDraft('')
     runAction(() => sendPilotMessage(session.id, text))
   }, [draft, runAction, session.id])
+
+  const archive = useCallback(() => {
+    setBusy(true)
+    setError(null)
+    archiveSession(session.id)
+      .then((updated) => {
+        onSessionUpdate(updated)
+        onClose()
+      })
+      .catch((err) => setError(String(err)))
+      .finally(() => setBusy(false))
+  }, [session.id, onSessionUpdate, onClose])
 
   return (
     <>
@@ -216,6 +240,11 @@ function PilotChat({
               Cancel
             </button>
           </>
+        )}
+        {canArchive && (
+          <button type="button" disabled={busy} onClick={archive}>
+            Archive
+          </button>
         )}
       </div>
 
@@ -247,6 +276,7 @@ function PilotChat({
         }}
       >
         <textarea
+          ref={composeRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={canSend ? 'Message this session…' : 'No live process — resume to keep chatting'}

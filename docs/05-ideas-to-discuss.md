@@ -141,3 +141,39 @@ than always installing a service. Where to host the binaries (GitHub Releases, a
 manager, something else) is itself part of what needs deciding here.
 
 **Status:** unagreed
+
+## IDEA-11 — A permission layer owned by LiveAgentsView
+
+**Proposal:** Bring tool permissions back, but as system configuration rather than as a
+chat question. Three pieces: a **durable policy** (rules of the form "tool + path pattern
+→ allow / ask / deny", global and per character) that LiveAgentsView evaluates itself, so
+it only asks about what no rule covers; **durable pending requests** (a row with a status,
+not a map in the daemon's memory, so a restart re-shows the question instead of stranding
+the character forever); and a bridge between them — answering with "remember this" writes
+a rule. Enforcement differs by race and would have to be declared: Claude Code can be
+gated (LiveAgentsView already sits in front of it), Cursor has no channel for it today,
+though the decision log records `.cursor/hooks.json`'s `beforeShellExecution` firing for
+`cursor-agent` — whether it can actually *block* a call is unverified and is what would
+have to be tested first.
+
+**2026-09-03:** proposed and explicitly deferred by Rodrigo in the same session that
+removed permission management entirely — "luego en el futuro podríamos ver si necesitamos
+implementarlo o no". See [03-decisions.md](03-decisions.md) 2026-09-03 "Permission
+management is dropped; every race runs auto-approving". Reviving this also revives the
+`blocked` activity and gives [IDEA-01](05-ideas-to-discuss.md)'s P0 level content again.
+
+**Status:** unagreed
+
+## IDEA-12 — Changing a character's class after it is created
+
+**Proposal:** Let a character change class (its model) without being recreated — for
+example dropping a character to a smaller, cheaper model once the hard part of the work is
+done. [03-decisions.md](03-decisions.md) 2026-09-03 "Vocabulary: character, race, class,
+quest" already establishes that class is the changeable half and race is not, and the
+mechanism is nearly free: the model is a flag passed when a process starts, so a class
+change is a sleep and a wake with a different `--model` for Claude Code, and takes effect
+on the next turn for Cursor. What is not defined is the product side: whether the change
+applies from the next quest or mid-quest, what the transcript shows, and whether class
+history is worth keeping.
+
+**Status:** unagreed

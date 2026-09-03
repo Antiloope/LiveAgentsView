@@ -8,8 +8,10 @@ export interface Session {
   repo: string
   branch: string
   worktree: string
+  model: string
   state: State
   last_message: string
+  archived: boolean
   created_at: string
   updated_at: string
 }
@@ -18,6 +20,16 @@ export interface Session {
 // (launched and driven by LiveAgentsView) in this MVP — see
 // PilotedSessionView for what each one can and can't do live.
 export type PilotProvider = 'claude-code' | 'cursor'
+
+// The three Claude Code model aliases the recruit panel offers — confirmed
+// live against the installed CLI's --model flag.
+export type ClaudeClassId = 'opus' | 'sonnet' | 'haiku'
+
+// One entry from the daemon's live `agent --list-models` catalog.
+export interface CursorModelOption {
+  id: string
+  label: string
+}
 
 export type PilotEventKind =
   | 'user'

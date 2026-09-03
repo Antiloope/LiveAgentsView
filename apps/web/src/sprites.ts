@@ -40,11 +40,11 @@ export const ARCHETYPES: Record<string, Archetype> = {
   'human-mage': {
     label: 'Human Mage',
     rects: [
-      ...baseBody('#e8b088', '#2f4d7a', '#e0b84a', '#241a12'),
+      ...baseBody('#e8b088', '#2f4d7a', '#e2703a', '#241a12'),
       r(20, 8, 56, 8, '#1f2f52'),
       r(40, 0, 16, 12, '#1f2f52'),
-      r(44, 2, 8, 4, '#e0b84a'),
-      r(78, 26, 6, 56, '#6b4a2a'),
+      r(44, 2, 8, 4, '#e2703a'),
+      r(78, 26, 6, 56, '#7a4a26'),
       r(70, 12, 20, 18, '#5fc7e8'),
     ],
   },
@@ -57,7 +57,7 @@ export const ARCHETYPES: Record<string, Archetype> = {
       r(14, 48, 14, 18, '#9aa2b0'),
       r(68, 48, 14, 18, '#9aa2b0'),
       r(78, 20, 8, 56, '#c8ccd0'),
-      r(76, 76, 12, 12, '#6b4a2a'),
+      r(76, 76, 12, 12, '#7a4a26'),
     ],
   },
   'dwarf-druid': {
@@ -73,7 +73,7 @@ export const ARCHETYPES: Record<string, Archetype> = {
       r(26, 108, 22, 8, '#2e2015'),
       r(48, 108, 22, 8, '#2e2015'),
       r(26, 38, 44, 22, '#d6d6d6'),
-      r(78, 24, 6, 56, '#6b4a2a'),
+      r(78, 24, 6, 56, '#7a4a26'),
       r(68, 14, 24, 16, '#4f8f4f'),
     ],
   },
@@ -89,8 +89,8 @@ export const ARCHETYPES: Record<string, Archetype> = {
       r(49, 32, 5, 6, '#1a1a1a'),
       r(10, 64, 6, 20, '#c8ccd0'),
       r(80, 64, 6, 20, '#c8ccd0'),
-      r(10, 82, 6, 6, '#6b4a2a'),
-      r(80, 82, 6, 6, '#6b4a2a'),
+      r(10, 82, 6, 6, '#7a4a26'),
+      r(80, 82, 6, 6, '#7a4a26'),
     ],
   },
   'halfling-cleric': {
@@ -148,7 +148,18 @@ function hash(seed: string): number {
   return h
 }
 
-export function archetypeFor(sessionId: string): string {
+// Claude Code's three recruit classes always summon the same archetype —
+// matching what the recruit panel's class cards promise ("→ arrives a ...")
+// — everything else (Cursor, or an unrecognized model string) keeps the
+// random per-session-id pick below.
+const CLAUDE_MODEL_ARCHETYPE: Record<string, string> = {
+  opus: 'dragonkin-warrior',
+  sonnet: 'elf-rogue',
+  haiku: 'halfling-cleric',
+}
+
+export function archetypeFor(sessionId: string, model?: string): string {
+  if (model && CLAUDE_MODEL_ARCHETYPE[model]) return CLAUDE_MODEL_ARCHETYPE[model]
   return ARCHETYPE_KEYS[hash(sessionId) % ARCHETYPE_KEYS.length]
 }
 

@@ -252,3 +252,114 @@ Distilled into [03-decisions.md](03-decisions.md) (amended/new entries),
 [01-vision.md](01-vision.md) (principle 4 corrected),
 [05-ideas-to-discuss.md](05-ideas-to-discuss.md) (IDEA-06 and IDEA-08 annotated), and
 [sdd/specs/piloted-only-mode.md](sdd/specs/piloted-only-mode.md).
+
+---
+
+## 2026-09-02 — Archive a session
+
+**Status: distilled 2026-09-02.**
+
+Source: Rodrigo, in chat — "quiero poder borrar un agente, osea hoy los veo a todos ahí
+en el campamento, pero me gustaría tener un boton para archivarlo digamos y dejar de
+verlo si no está ejecutando nada digamos." The camp view (`apps/web`) has no way to stop
+showing a session once it exists — every known session renders as a party member forever,
+finished ones included.
+
+Triaged as spec-worthy (crosses the session model, SQLite, the HTTP API and the frontend
+camp view), not a "just go." Three product questions asked and answered before writing
+the spec:
+
+- **Persistence:** archived state is stored in SQLite as part of the session row (not
+  just a browser-local hide), so it survives a `lav` restart and is the same from any
+  device pointed at the same daemon.
+- **Reversibility:** archiving is reversible. A dedicated "Archived" view lists archived
+  sessions with an unarchive action, rather than a one-way hide.
+- **Eligibility:** a session can be archived in any state except `working` — `idle`,
+  `waiting`, `blocked`, `done` and `failed` are all archivable, not only the terminal
+  `done`/`failed` states. `working` is excluded so a session mid-turn can't be hidden out
+  from under itself.
+
+Distilled into [03-decisions.md](03-decisions.md) (new entry), [02-scope.md](02-scope.md)
+("What it does" bullet), and
+[sdd/specs/archive-session.md](sdd/specs/archive-session.md).
+
+---
+
+## 2026-09-03 — Character model, territory, lifecycle and dropping permissions
+
+**Status: distilled 2026-09-03.**
+
+Source: Rodrigo, in chat, after a code + live-service review of the running daemon
+(`127.0.0.1:8420`) that started from one symptom — "recién creé un agente con sonnet y
+quedó on quest desde el primer momento, sin que le pase ninguna tarea" — and from
+noticing that creating a Cursor one demands a first prompt while a Claude one does not.
+
+### What the review found (raw, before any definition)
+
+Confirmed live against the running service, not read-only from the code:
+
+- A Claude Code session launched with no prompt is upserted as `working` unconditionally
+  and never leaves that state: the CLI emits nothing at all until its first message, so
+  no `result` line ever arrives. The real session on this machine had a 0-byte
+  transcript and `updated_at == created_at` hours later.
+- That same session cannot be archived (`working` is excluded), and there is no delete,
+  so it cannot be removed from the camp view by any route.
+- No CSRF or Origin check on the API, and the JSON body is decoded regardless of
+  `Content-Type`. Verified live: a `POST /api/piloted/sessions` with
+  `Content-Type: text/plain` and `Origin: https://evil.example` was parsed normally and
+  only failed on field validation. Any web page open in the browser can therefore launch
+  an auto-approving agent on this machine; binding to `127.0.0.1` does not prevent it.
+  Unrelated to the redesign below — logged here so it is not lost.
+- `git checkout` runs in the user's own chosen directory when a branch is picked.
+- A pending permission request lives only in the daemon's memory; a daemon restart
+  strands the child process waiting for an answer that can no longer be given.
+- Liveness lives in three places (SQLite `state`, the manager's in-memory `running`, the
+  real process) and is reconciled only at daemon startup. A runner killed abruptly leaves
+  a session reading `working` forever.
+- Measured: a Claude character that had never received a message held 129 MB RSS and
+  ~0.5% CPU after 3h27m, plus 10 MB for its runner.
+- Smaller ones: HP/MP bars are seeded random numbers presented as telemetry; the empty
+  state still tells the user to run `lav init` and start sessions natively, both removed
+  in piloted-only mode; a live event arriving while the drawer's history is still loading
+  is overwritten; `Cancel` on a dead session leaves `stoppedByUser` set; `Interrupt` is
+  offered when there is no turn to interrupt.
+
+### What Rodrigo decided in this session
+
+- **Vocabulary, provider-neutral and in the lore.** `character` replaces "agent"/
+  "session" as the word for the durable thing the user creates and talks to. `quest`
+  replaces "task". The engine behind a character is its **race** — "algo duro que no se
+  puede cambiar" — and the model is its **class**: "a futuro capaz a un agente se le
+  puede cambiar la clase (cambiar para que use un modelo mas chico por ejemplo), pero no
+  se podría cambiar de raza a un character". The engine is never named as its own
+  concept in the interface.
+- **DONE is not a state.** Raised by Rodrigo: "El estado DONE no se si existiría o es
+  IDLE de nuevo luego de terminar con algo que indique que terminó. Osea todos irían a
+  idle solo cuando los creamos, después todos quedan en idle eventualmente cuando
+  terminan bien no?" Agreed: what DONE actually describes is whether the *user* has seen
+  the result, not what the character is doing, so it becomes an unread mark and the
+  activity states collapse.
+- **Two axes.** What a character is doing, and whether it is awake, are separate. The
+  user never manages the second one: talking to an asleep character wakes it. This is
+  what makes Cursor (a fresh process every turn) and Claude Code (a process that stays
+  resident) behave identically from the outside.
+- **Territory.** A character works either in its own worktree that LiveAgentsView
+  administers, or in the directory exactly as it is. Own worktree is the default. Chosen
+  from the two options offered: worktrees under `~/.liveagentsview/worktrees/`, removed
+  on dismissal only when clean.
+- **Archiving sends to sleep.** Chosen from three options offered: archiving stops the
+  process, keeps history and territory, and is allowed in any state including working.
+- **Permissions are dropped for now.** "Estoy pensando que hagamos para esta versión lo
+  mismo con Claude de mandarlo en modo automatico para que no pida permisos y funcione
+  igual que cursor y nos sacamos la gestión de permisos por ahora de encima. Luego en el
+  futuro podríámos ver si necesitamos implemetnar esto o no."
+- **A quest is not a first-class object** for now — the chat is enough, and modelling
+  tasks would cross the "no task management or workflows" scope boundary.
+
+Distilled into [03-decisions.md](03-decisions.md) (seven new entries, two of them
+superseding earlier ones), [02-scope.md](02-scope.md),
+[04-open-questions.md](04-open-questions.md) (Q-10, Q-11),
+[05-ideas-to-discuss.md](05-ideas-to-discuss.md) (IDEA-11, IDEA-12) and
+[sdd/specs/character-model-redesign.md](sdd/specs/character-model-redesign.md).
+The CSRF finding above is not part of that spec; it has its own,
+[sdd/specs/local-api-hardening.md](sdd/specs/local-api-hardening.md).

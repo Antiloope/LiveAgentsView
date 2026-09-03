@@ -39,8 +39,10 @@ type Session struct {
 	Repo        string    `json:"repo"`
 	Branch      string    `json:"branch"`
 	Worktree    string    `json:"worktree"`
+	Model       string    `json:"model"`
 	State       State     `json:"state"`
 	LastMessage string    `json:"last_message"`
+	Archived    bool      `json:"archived"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

@@ -12,23 +12,46 @@
 > it launched itself.
 
 Every session LiveAgentsView shows is one it launched itself, as a child process over
-bidirectional `stream-json`. You can answer questions, approve/deny permissions, and
-cancel — without leaving the dashboard. There is no read-only class for sessions started
-outside it; those are not tracked at all.
+bidirectional `stream-json`. You can answer its questions, interrupt it and stop it —
+without leaving the dashboard. There is no read-only class for sessions started outside
+it; those are not tracked at all.
 
 Building on top of the vendor CLIs this way keeps the door open to a fuller frontend
 later, but that is not the goal of this scope.
 
+## Vocabulary
+
+> **2026-09-03:** added with the [03-decisions.md](03-decisions.md) 2026-09-03
+> "Vocabulary: character, race, class, quest" entry.
+
+The words the interface uses do not name the engine behind a session:
+
+- A **character** is the durable thing the user creates and talks to. It lives many
+  quests and returns to camp between them.
+- Its **race** is the engine behind it (Claude Code, Cursor, Codex). It cannot change.
+- Its **class** is the model it runs. It can change in principle.
+- Its **territory** is where it works: its own worktree, or a shared directory.
+- A **quest** is what the user asks it for. It is not a modelled object — see
+  [03-decisions.md](03-decisions.md) 2026-09-03 "A quest is not a modelled object".
+- **Camp** is where a character is when it is not out on a quest.
+
+"Session" stays an internal word for the provider-side conversation a character owns.
+
 ## What it does
 
-- Launches and aggregates coding-agent sessions into one dashboard.
-- Shows repository, worktree, branch, provider and normalized state per session.
+- Launches and aggregates characters into one dashboard.
+- Shows repository, territory, branch, race, class and normalized activity per character.
 - Surfaces an **attention queue**: what actually needs the human, prioritized.
 - Notifies on the events that earn an interruption.
-- Lets the user act on any session directly — answer, approve/deny, interrupt, cancel,
-  resume — without leaving the dashboard.
-- Shows recently finished agents.
+- Lets the user act on any character directly — answer it, interrupt it, stop it — without
+  leaving the dashboard.
+- Shows which characters came back with news the user has not read yet.
 - Persists enough state and history to survive restarts.
+- Lets the user give a character its own worktree, administered by LiveAgentsView, or run
+  it on a directory exactly as it is.
+- Lets the user archive a character in any activity, which also sends it to sleep and
+  frees the memory it held, reversibly, from a dedicated archived view; and dismiss one
+  for good.
 
 ### Integration surface
 
@@ -36,10 +59,9 @@ later, but that is not the goal of this scope.
 > Tailing) shown per session. Hooks and Tailing are gone along with adopted mode — see
 > [03-decisions.md](03-decisions.md) 2026-09-02. Driver is now the only surface.
 
-**Driver** — bidirectional `stream-json` against the vendor CLI. Full control: every
-event out, realtime input in, permission requests answerable from the dashboard. This is
-the only integration surface; a session with no driver process is a session
-LiveAgentsView does not know about.
+**Driver** — bidirectional `stream-json` against the vendor CLI. Every event out,
+realtime input in. This is the only integration surface; a character LiveAgentsView cannot
+drive is a character it does not know about.
 
 ### Providers in the MVP
 
@@ -50,9 +72,10 @@ Claude Code and Cursor have a working piloted (driver-fidelity) adapter.
 > way to appear in the app either — it has no representation in LiveAgentsView until a
 > driver adapter is built for it. Not dropped as a target provider, just not usable yet.
 
-Known constraint: Cursor's piloted adapter auto-approves every tool call (`--force`/
-`--yolo`) — its CLI has no live permission-approval channel, confirmed in
-[piloted-mode-mvp](sdd/specs/piloted-mode-mvp.md).
+> **2026-09-03:** this said Cursor's adapter auto-approving every tool call was a known
+> constraint of that race specifically. Every race now runs auto-approving — see
+> [03-decisions.md](03-decisions.md) 2026-09-03 "Permission management is dropped; every
+> race runs auto-approving". It is no longer a difference between races.
 
 ### Attention
 
@@ -83,10 +106,17 @@ Not in this scope:
 **LLM credentials are never managed.** Executing the vendor CLIs as subprocesses inherits
 the user's existing login. LiveAgentsView does not see, store or ask for API keys.
 
-**Filesystem permissions are delegated to the underlying agent.** Claude Code has
-permission modes, allow/deny rules and `--add-dir`; Codex has sandbox modes and approval
-policy. LiveAgentsView surfaces the prompt and routes the answer. It does not build a
-sandbox of its own.
+**Permissions are not mediated at all.** Every character runs auto-approving, whatever
+its race — see [03-decisions.md](03-decisions.md) 2026-09-03. LiveAgentsView neither asks
+the user to approve tool calls nor sandboxes anything. A character's own territory is
+containment, not a sandbox: it keeps a character out of the directory the user is working
+in, and stops nothing else.
 
-**A local server that can approve permissions is remote code execution.** Bind to
-`127.0.0.1` by default; exposing it to other devices is an explicit, separate opt-in.
+> **2026-09-03:** this previously read "filesystem permissions are delegated to the
+> underlying agent (...) LiveAgentsView surfaces the prompt and routes the answer." It no
+> longer surfaces anything. Building a permission layer later is
+> [IDEA-11](05-ideas-to-discuss.md).
+
+**A local server that can launch a coding agent is remote code execution.** More so now
+that every character it launches auto-approves. Bind to `127.0.0.1` by default; exposing
+it to other devices is an explicit, separate opt-in.

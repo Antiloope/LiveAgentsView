@@ -61,7 +61,18 @@ type LaunchSpec struct {
 	Provider model.Provider
 	Cwd      string
 	Branch   string
+	Model    string
 	Prompt   string
+}
+
+// modelArgs returns the CLI args for a --model flag, or nil when m is empty
+// — omitting the flag entirely lets the provider's own CLI default apply
+// rather than passing an empty value it would have to reject.
+func modelArgs(m string) []string {
+	if m == "" {
+		return nil
+	}
+	return []string{"--model", m}
 }
 
 // ErrNotFound is returned when an action targets a session Manager does not
@@ -100,6 +111,7 @@ type pilotSession struct {
 	provider model.Provider
 	cwd      string
 	branch   string
+	model    string
 	hub      *sse.Hub
 
 	mu            sync.Mutex
@@ -217,6 +229,7 @@ func (m *Manager) upsert(ctx context.Context, ps *pilotSession, state model.Stat
 		Cwd:         ps.cwd,
 		Repo:        filepath.Base(ps.cwd),
 		Branch:      ps.branch,
+		Model:       ps.model,
 		State:       state,
 		LastMessage: lastMessage,
 		CreatedAt:   createdAt,
@@ -287,6 +300,7 @@ func (m *Manager) resolve(ctx context.Context, id string) (*pilotSession, error)
 	ps.provider = sess.Provider
 	ps.cwd = sess.Cwd
 	ps.branch = sess.Branch
+	ps.model = sess.Model
 	return ps, nil
 }
 
@@ -450,7 +464,7 @@ func (m *Manager) Resume(ctx context.Context, id string) (model.Session, error) 
 
 	switch ps.provider {
 	case model.ProviderClaudeCode:
-		spec := LaunchSpec{Provider: ps.provider, Cwd: ps.cwd, Branch: ps.branch}
+		spec := LaunchSpec{Provider: ps.provider, Cwd: ps.cwd, Branch: ps.branch, Model: ps.model}
 		if err := m.launchClaude(ctx, ps, spec, ps.id); err != nil {
 			return model.Session{}, err
 		}
@@ -472,13 +486,15 @@ func (m *Manager) Resume(ctx context.Context, id string) (model.Session, error) 
 // has nothing to replay). Used for every Claude Code launch and resume, and
 // for every Cursor message after the session's first — see cursor.go.
 func (m *Manager) spawnRunner(ps *pilotSession, extraArgs []string) error {
-	args := append([]string{
+	args := []string{
 		"pilot-runner",
 		"--session", ps.id,
 		"--provider", string(ps.provider),
 		"--cwd", ps.cwd,
 		"--lav-home", m.lavHome,
-	}, extraArgs...)
+	}
+	args = append(args, modelArgs(ps.model)...)
+	args = append(args, extraArgs...)
 
 	cmd := exec.Command(m.selfExe, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -529,6 +545,7 @@ func (m *Manager) reconnect(ctx context.Context, sess model.Session) bool {
 	ps.provider = sess.Provider
 	ps.cwd = sess.Cwd
 	ps.branch = sess.Branch
+	ps.model = sess.Model
 	ps.mu.Lock()
 	ps.conn = conn
 	ps.stdin = &socketStdin{conn: conn}

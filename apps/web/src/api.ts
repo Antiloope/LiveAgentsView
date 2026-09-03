@@ -1,4 +1,4 @@
-import type { PilotEvent, PilotProvider, Session } from './types'
+import type { CursorModelOption, PilotEvent, PilotProvider, Session } from './types'
 
 export async function fetchSessions(): Promise<Session[]> {
   const res = await fetch('/api/sessions')
@@ -41,10 +41,34 @@ export async function launchPilotedSession(spec: {
   provider: PilotProvider
   cwd: string
   branch: string
+  model: string
   prompt: string
 }): Promise<Session> {
   const res = await pilotAction('/api/piloted/sessions', spec)
   return (await res.json()) as Session
+}
+
+// pickDirectory opens the daemon's native macOS folder picker and returns
+// the chosen absolute path, or null if the user cancelled the dialog.
+export async function pickDirectory(): Promise<string | null> {
+  const res = await fetch('/api/pick-directory', { method: 'POST' })
+  if (res.status === 204) return null
+  if (!res.ok) throw new Error((await res.text().catch(() => '')) || `POST /api/pick-directory: ${res.status}`)
+  const data = (await res.json()) as { path: string }
+  return data.path
+}
+
+export async function fetchBranches(cwd: string): Promise<{ current: string; branches: string[] }> {
+  const res = await fetch(`/api/branches?cwd=${encodeURIComponent(cwd)}`)
+  if (!res.ok) throw new Error(`GET /api/branches: ${res.status}`)
+  return (await res.json()) as { current: string; branches: string[] }
+}
+
+export async function fetchCursorModels(): Promise<CursorModelOption[]> {
+  const res = await fetch('/api/cursor-models')
+  if (!res.ok) throw new Error(`GET /api/cursor-models: ${res.status}`)
+  const data = (await res.json()) as CursorModelOption[] | null
+  return data ?? []
 }
 
 export function sendPilotMessage(id: string, text: string): Promise<void> {
@@ -67,6 +91,16 @@ export function cancelPilotedSession(id: string): Promise<void> {
 
 export async function resumePilotedSession(id: string): Promise<Session> {
   const res = await pilotAction(`/api/piloted/sessions/${id}/resume`)
+  return (await res.json()) as Session
+}
+
+export async function archiveSession(id: string): Promise<Session> {
+  const res = await pilotAction(`/api/sessions/${id}/archive`)
+  return (await res.json()) as Session
+}
+
+export async function unarchiveSession(id: string): Promise<Session> {
+  const res = await pilotAction(`/api/sessions/${id}/unarchive`)
   return (await res.json()) as Session
 }
 

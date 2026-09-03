@@ -1,16 +1,15 @@
-import type { Provider, State } from './types'
-import { PROVIDER_RUNE, STATUS_ICON_CELLS, STATUS_ICON_BG } from './sprites'
+import type { Race, Activity } from './types'
+import { RACE_RUNE, STATUS_ICON_CELLS, STATUS_ICON_BG } from './sprites'
 
-// Provider mark: one flat glyph per vendor, same stroke weight — echoes the
+// Race mark: one flat glyph per engine, same stroke weight — echoes the
 // party sprites' own pixel-block language rather than a stock icon font.
-export function ProviderRune({ provider, className }: { provider: Provider; className?: string }) {
-  const rune = PROVIDER_RUNE[provider]
+export function RaceRune({ race, className }: { race: Race; className?: string }) {
+  const rune = RACE_RUNE[race]
   return (
-    <svg viewBox="0 0 16 16" className={className ?? 'provider-rune'} aria-hidden="true">
+    <svg viewBox="0 0 16 16" className={className ?? 'race-rune'} aria-hidden="true">
       {rune.shape === 'leaf' && (
         <path d="M8 1c3 3 5 6 5 9a5 5 0 1 1-10 0c0-3 2-6 5-9z" fill={rune.color} />
       )}
-      {rune.shape === 'diamond' && <path d="M8 1 15 8 8 15 1 8z" fill={rune.color} />}
       {rune.shape === 'triangle' && <path d="M8 1 15 14 1 14z" fill={rune.color} />}
     </svg>
   )
@@ -106,14 +105,15 @@ export function SearchRune({ className }: { className?: string }) {
   )
 }
 
-// Drawn pixel-block status glyph (question mark, exclamation, check, cross,
-// zzz) instead of a unicode/emoji stand-in — same 2-unit-cell grammar as
-// the party sprites so it reads as this world's own icon system.
-export function StatusIcon({ state, className }: { state: State; className?: string }) {
-  const cells = STATUS_ICON_CELLS[state]
+// Drawn pixel-block status glyph (question mark, cross) instead of a
+// unicode/emoji stand-in — same 2-unit-cell grammar as the party sprites so
+// it reads as this world's own icon system. Ready has nothing to show here
+// — see UnreadDot for its own, separate, quieter mark.
+export function StatusIcon({ activity, className }: { activity: Activity; className?: string }) {
+  const cells = STATUS_ICON_CELLS[activity]
   if (!cells) return null
-  const bg = STATUS_ICON_BG[state]
-  const ink = state === 'waiting' ? '#2a1a0c' : '#fff8e8'
+  const bg = STATUS_ICON_BG[activity]
+  const ink = activity === 'waiting' ? '#2a1a0c' : '#fff8e8'
   return (
     <div className={className ?? 'status-icon'} style={{ background: bg }}>
       <svg viewBox="0 0 10 10">
@@ -123,4 +123,11 @@ export function StatusIcon({ state, className }: { state: State; className?: str
       </svg>
     </div>
   )
+}
+
+// A quiet, small mark for "came back with news you have not seen yet" — the
+// unread mark, deliberately not a front-row/glowing signal: an agent
+// finishing is low-priority attention, silent and grouped, not urgent.
+export function UnreadDot({ className }: { className?: string }) {
+  return <span className={className ?? 'unread-dot'} aria-hidden="true" />
 }

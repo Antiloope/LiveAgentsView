@@ -1,17 +1,18 @@
 import { useMemo } from 'react'
+import type { Race } from './types'
 import { ARCHETYPES, archetypeFor } from './sprites'
 
 interface Props {
-  sessionId: string
-  model?: string
+  characterId: string
+  race: Race
   className?: string
 }
 
-// Renders the party sprite assigned to this session id — see sprites.ts for
-// how the archetype is picked: a fixed one for Claude Code's three recruit
-// classes, a random per-session-id pick for everything else.
-export default function Portrait({ sessionId, model, className }: Props) {
-  const archetype = useMemo(() => ARCHETYPES[archetypeFor(sessionId, model)], [sessionId, model])
+// Renders the party sprite assigned to this character — see sprites.ts for
+// how the archetype is picked: a pool per race, hashed by character id so
+// individuals of the same race stay visually distinguishable.
+export default function Portrait({ characterId, race, className }: Props) {
+  const archetype = useMemo(() => ARCHETYPES[archetypeFor(characterId, race)], [characterId, race])
 
   return (
     <svg viewBox="0 0 96 128" className={className ? `party-sprite ${className}` : 'party-sprite'} shapeRendering="crispEdges">

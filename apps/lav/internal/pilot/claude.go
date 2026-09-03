@@ -6,99 +6,58 @@ import (
 	"fmt"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
-	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotwire"
 )
 
-// launchClaude starts a Claude Code piloted session by spawning its
-// pilot-runner (see spawnRunner) with --input-format stream-json, which
-// keeps it reading stdin for further turns instead of exiting after the
-// first one — what lets SendMessage keep talking to the same process across
-// a whole session, and what lets ReconcileOnStartup reconnect to it later.
-// resumeSessionID is empty for a fresh launch (a new --session-id is
-// generated) and set to re-attach a session whose process previously
-// exited (--resume).
-func (m *Manager) launchClaude(ctx context.Context, ps *pilotSession, spec LaunchSpec, resumeSessionID string) error {
-	id := resumeSessionID
-	if id == "" {
-		id = newUUID()
-	}
-	ps.id = id
-	ps.provider = model.ProviderClaudeCode
-	ps.cwd = spec.Cwd
-	ps.branch = spec.Branch
-	ps.model = spec.Model
-	m.mu.Lock()
-	m.sessions[id] = ps
-	m.mu.Unlock()
-
-	var extra []string
-	if resumeSessionID != "" {
-		extra = append(extra, "--resume")
-	}
-	if err := m.spawnRunner(ps, extra); err != nil {
+// createClaude starts a brand-new Claude Code character's process
+// immediately — its process just sits attached, waiting on stdin, once
+// there is nothing left to do, which is why a Claude Code character created
+// with no prompt is ready and awake rather than asleep like Cursor's.
+func (m *Manager) createClaude(ctx context.Context, pc *pilotChar, prompt string) error {
+	if err := m.spawnRunner(pc, nil); err != nil {
 		return err
 	}
-
-	m.upsert(ctx, ps, model.StateWorking, "")
-
-	if spec.Prompt != "" {
-		m.emit(ctx, ps, Event{Kind: EventUser, Text: spec.Prompt})
-		if _, err := ps.stdin.Write(claudeUserMessage(spec.Prompt)); err != nil {
-			return fmt.Errorf("send initial prompt: %w", err)
-		}
+	m.upsert(ctx, pc, model.ActivityReady, "")
+	if prompt == "" {
+		return nil
 	}
+	m.emit(ctx, pc, Event{Kind: EventUser, Text: prompt})
+	if _, err := pc.stdin.Write(claudeUserMessage(prompt)); err != nil {
+		return fmt.Errorf("send initial prompt: %w", err)
+	}
+	m.upsert(ctx, pc, model.ActivityWorking, "")
 	return nil
 }
 
-func (m *Manager) sendClaudeMessage(ps *pilotSession, text string) error {
-	ps.mu.Lock()
-	running, stdin := ps.running, ps.stdin
-	ps.mu.Unlock()
+// deliverClaude writes directly to an already-attached process's stdin, or
+// wakes one first if none is attached — a character that has run before
+// (it has a recorded provider session id) resumes it, one that never has
+// starts a brand-new one.
+func (m *Manager) deliverClaude(ctx context.Context, pc *pilotChar, text string) error {
+	pc.mu.Lock()
+	running, stdin := pc.running, pc.stdin
+	pc.mu.Unlock()
+
 	if !running || stdin == nil {
-		return ErrNotRunning
+		ch, found, err := m.store.GetCharacter(ctx, pc.id)
+		if err != nil {
+			return err
+		}
+		var extra []string
+		if found && ch.SessionID != "" {
+			extra = []string{"--resume"}
+		}
+		if err := m.spawnRunner(pc, extra); err != nil {
+			return err
+		}
+		stdin = pc.stdin
 	}
-	m.emit(context.Background(), ps, Event{Kind: EventUser, Text: text})
-	_, err := stdin.Write(claudeUserMessage(text))
-	return err
-}
 
-// approveClaudePermission answers a pending approval_prompt call — relayed by
-// pilot-runner from its pilot-mcp helper, see handleClaudePermissionRequest —
-// by sending the decision back over the same control socket the runner
-// already dials this session's stdin/kill through. Not written to the
-// child's own stdin: the child never asked there in the first place (see
-// package doc), the runner's blocked pilot-mcp connection is what's actually
-// waiting for this.
-func (m *Manager) approveClaudePermission(ps *pilotSession, requestID string, approve bool) error {
-	ps.mu.Lock()
-	running, conn := ps.running, ps.conn
-	known := ps.pending[requestID]
-	if known {
-		delete(ps.pending, requestID)
+	m.emit(ctx, pc, Event{Kind: EventUser, Text: text})
+	if _, err := stdin.Write(claudeUserMessage(text)); err != nil {
+		return err
 	}
-	ps.mu.Unlock()
-	if !running || conn == nil {
-		return ErrNotRunning
-	}
-	if !known {
-		return fmt.Errorf("no pending permission request %s", requestID)
-	}
-	approved := approve
-	m.emit(context.Background(), ps, Event{Kind: EventPermissionResolved, RequestID: requestID, Approved: &approved})
-	return pilotwire.Encode(conn, pilotwire.ClientMsg{Op: "permission_response", RequestID: requestID, Approve: approve})
-}
-
-// handleClaudePermissionRequest turns one permission ask relayed by
-// pilot-runner (originally an approval_prompt tools/call it received from
-// its pilot-mcp helper — see internal/pilotrunner and internal/pilotmcp)
-// into the same EventPermissionRequest/StateBlocked the dashboard already
-// renders an Approve/Deny card for. approveClaudePermission answers it.
-func (m *Manager) handleClaudePermissionRequest(ctx context.Context, ps *pilotSession, req *pilotwire.PermissionRequest) {
-	ps.mu.Lock()
-	ps.pending[req.RequestID] = true
-	ps.mu.Unlock()
-	m.emit(ctx, ps, Event{Kind: EventPermissionRequest, ToolName: req.ToolName, ToolInput: req.Input, RequestID: req.RequestID})
-	m.upsert(ctx, ps, model.StateBlocked, "")
+	m.upsert(ctx, pc, model.ActivityWorking, "")
+	return nil
 }
 
 // interruptClaude asks the live process to stop its current turn without
@@ -108,13 +67,13 @@ func (m *Manager) handleClaudePermissionRequest(ctx context.Context, ps *pilotSe
 // subtype:"error_during_execution" — indistinguishable on its own from a
 // genuine failure. interrupted marks that the next such result line was
 // asked for, not a crash — see handleClaudeLine's "result" case.
-func (m *Manager) interruptClaude(ps *pilotSession) error {
-	ps.mu.Lock()
-	running, stdin := ps.running, ps.stdin
+func (m *Manager) interruptClaude(pc *pilotChar) error {
+	pc.mu.Lock()
+	running, stdin := pc.running, pc.stdin
 	if running {
-		ps.interrupted = true
+		pc.interrupted = true
 	}
-	ps.mu.Unlock()
+	pc.mu.Unlock()
 	if !running || stdin == nil {
 		return ErrNotRunning
 	}
@@ -176,12 +135,11 @@ type claudeSystemLine struct {
 
 // handleClaudeLine turns one raw stream-json line from Claude Code's stdout
 // (relayed live by pilot-runner, or replayed from its durable transcript on
-// reconnect) into transcript events and session state transitions.
-// Permission requests never arrive on this channel at all — see
-// handleClaudePermissionRequest. Unrecognized top-level types (including the
-// control_response that acknowledges an interrupt) are still shown, as a raw
-// passthrough event, rather than silently dropped.
-func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line []byte) {
+// reconnect) into transcript events and activity transitions. Unrecognized
+// top-level types (including the control_response that acknowledges an
+// interrupt) are still shown, as a raw passthrough event, rather than
+// silently dropped.
+func (m *Manager) handleClaudeLine(ctx context.Context, pc *pilotChar, line []byte) {
 	if len(line) == 0 {
 		return
 	}
@@ -189,7 +147,7 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(line, &probe); err != nil {
-		m.emit(ctx, ps, Event{Kind: EventError, Text: string(line)})
+		m.emit(ctx, pc, Event{Kind: EventError, Text: string(line)})
 		return
 	}
 
@@ -210,12 +168,12 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 				if block.Text == "" {
 					continue
 				}
-				ps.mu.Lock()
-				ps.lastText = block.Text
-				ps.mu.Unlock()
-				m.emit(ctx, ps, Event{Kind: EventAssistant, Text: block.Text})
+				pc.mu.Lock()
+				pc.lastText = block.Text
+				pc.mu.Unlock()
+				m.emit(ctx, pc, Event{Kind: EventAssistant, Text: block.Text})
 			case "tool_use":
-				m.emit(ctx, ps, Event{Kind: EventToolCall, ToolName: block.Name, ToolInput: block.Input, RequestID: block.ID})
+				m.emit(ctx, pc, Event{Kind: EventToolCall, ToolName: block.Name, ToolInput: block.Input, RequestID: block.ID})
 			}
 		}
 
@@ -224,38 +182,42 @@ func (m *Manager) handleClaudeLine(ctx context.Context, ps *pilotSession, line [
 		if err := json.Unmarshal(line, &r); err != nil {
 			return
 		}
-		ps.mu.Lock()
-		lastText := ps.lastText
-		interrupted := ps.interrupted
-		ps.interrupted = false
-		ps.mu.Unlock()
+		pc.mu.Lock()
+		lastText := pc.lastText
+		interrupted := pc.interrupted
+		pc.interrupted = false
+		pc.mu.Unlock()
 		if r.Result != "" {
 			lastText = r.Result
 		}
 		if r.IsError {
 			if interrupted && r.Subtype == "error_during_execution" {
 				// A requested interrupt, not a crash: the process is still
-				// alive and its stdin still open, so this reads as DONE
-				// (ready for the next message) rather than FAILED (which the
-				// dashboard reads as "process gone, offer Resume").
-				m.emit(ctx, ps, Event{Kind: EventSystem, Text: "turn interrupted"})
-				m.upsert(ctx, ps, model.StateDone, lastText)
+				// alive and its stdin still open, so this reads as READY
+				// (nothing to do, can be talked to again) rather than
+				// FAILED.
+				m.emit(ctx, pc, Event{Kind: EventSystem, Text: "turn interrupted"})
+				m.afterTurn(ctx, pc, func() { m.upsert(ctx, pc, model.ActivityReady, lastText) })
 				return
 			}
-			m.upsert(ctx, ps, model.StateFailed, lastText)
+			m.afterTurn(ctx, pc, func() { m.upsert(ctx, pc, model.ActivityFailed, lastText) })
 			return
 		}
-		m.upsert(ctx, ps, m.classify(lastText), lastText)
+		activity, unread := m.classify(lastText)
+		m.afterTurn(ctx, pc, func() { m.finishQuest(ctx, pc, activity, lastText, unread) })
 
 	case "system":
 		var s claudeSystemLine
 		if err := json.Unmarshal(line, &s); err == nil && s.Subtype == "init" {
-			m.emit(ctx, ps, Event{Kind: EventSystem, Text: "session started"})
+			m.emit(ctx, pc, Event{Kind: EventSystem, Text: "session started"})
+			if s.SessionID != "" {
+				m.recordSessionID(ctx, pc, s.SessionID)
+			}
 		}
 		// hook_started/hook_response/api_retry and other system noise are
 		// not shown — the chat stays readable as a conversation, not a log.
 
 	default:
-		m.emit(ctx, ps, Event{Kind: EventSystem, Text: string(line)})
+		m.emit(ctx, pc, Event{Kind: EventSystem, Text: string(line)})
 	}
 }

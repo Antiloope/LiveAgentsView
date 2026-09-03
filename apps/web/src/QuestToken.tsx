@@ -1,37 +1,37 @@
 import { useMemo } from 'react'
-import type { Session } from './types'
-import { PROVIDER_LABEL, seededPercent } from './sprites'
+import type { Character } from './types'
+import { RACE_LABEL, seededPercent } from './sprites'
 import Portrait from './Portrait'
-import { ProviderRune } from './Glyphs'
+import { RaceRune } from './Glyphs'
 
 interface Props {
-  session: Session
+  character: Character
   selected?: boolean
   onSelect: (id: string) => void
 }
 
-export default function QuestToken({ session, selected, onSelect }: Props) {
-  const hp = useMemo(() => seededPercent(session.id, 'hp'), [session.id])
-  const mp = useMemo(() => seededPercent(session.id, 'mp'), [session.id])
+export default function QuestToken({ character, selected, onSelect }: Props) {
+  const hp = useMemo(() => seededPercent(character.id, 'hp'), [character.id])
+  const mp = useMemo(() => seededPercent(character.id, 'mp'), [character.id])
 
   return (
     <button
       type="button"
       className={`quest-token${selected ? ' selected' : ''}`}
-      aria-label={`${PROVIDER_LABEL[session.provider]}, working`}
+      aria-label={`${RACE_LABEL[character.race]}, working`}
       aria-pressed={selected}
-      onClick={() => onSelect(session.id)}
+      onClick={() => onSelect(character.id)}
     >
       <div className="mini-sprite">
-        <Portrait sessionId={session.id} model={session.model} />
+        <Portrait characterId={character.id} race={character.race} />
       </div>
       <div className="mini-text">
         <div className="mini-provider">
-          <ProviderRune provider={session.provider} className="provider-rune" />
-          <span>{PROVIDER_LABEL[session.provider]}</span>
+          <RaceRune race={character.race} className="race-rune" />
+          <span>{RACE_LABEL[character.race]}</span>
         </div>
-        <div className="mini-repo" title={session.repo || session.cwd}>
-          {session.repo || session.cwd}
+        <div className="mini-repo" title={character.territory.path}>
+          {character.repo || character.territory.path}
         </div>
         <div className="mini-bars">
           <div className="bar-track">

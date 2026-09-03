@@ -1,4 +1,4 @@
-import type { CursorModelOption, PilotEvent, PilotProvider, Session } from './types'
+import type { Character, CursorClassOption, PilotEvent, Race, TerritoryMode } from './types'
 
 // The daemon rejects every state-changing request (never GET or SSE) that
 // lacks this header. Its only job is to force a CORS preflight, which the
@@ -6,20 +6,20 @@ import type { CursorModelOption, PilotEvent, PilotProvider, Session } from './ty
 // it and reach those routes.
 const CLIENT_HEADER = 'X-LAV-Client'
 
-export async function fetchSessions(): Promise<Session[]> {
-  const res = await fetch('/api/sessions')
-  if (!res.ok) throw new Error(`GET /api/sessions: ${res.status}`)
-  const data = (await res.json()) as Session[] | null
+export async function fetchCharacters(): Promise<Character[]> {
+  const res = await fetch('/api/characters')
+  if (!res.ok) throw new Error(`GET /api/characters: ${res.status}`)
+  const data = (await res.json()) as Character[] | null
   return data ?? []
 }
 
-// subscribeToSessions opens the SSE stream and calls onUpdate for every
-// session upsert the daemon broadcasts. Returns an unsubscribe function.
-export function subscribeToSessions(onUpdate: (session: Session) => void): () => void {
+// subscribeToCharacters opens the SSE stream and calls onUpdate for every
+// character upsert the daemon broadcasts. Returns an unsubscribe function.
+export function subscribeToCharacters(onUpdate: (character: Character) => void): () => void {
   const source = new EventSource('/api/events/stream')
   source.onmessage = (event) => {
     try {
-      onUpdate(JSON.parse(event.data) as Session)
+      onUpdate(JSON.parse(event.data) as Character)
     } catch {
       // ignore malformed/non-JSON frames (e.g. the initial ": connected" comment)
     }
@@ -27,10 +27,9 @@ export function subscribeToSessions(onUpdate: (session: Session) => void): () =>
   return () => source.close()
 }
 
-// pilotAction posts to a piloted-session action endpoint and surfaces the
-// daemon's plain-text error body (e.g. "a turn is already in progress for
-// this session") instead of just the status code.
-async function pilotAction(path: string, body?: unknown): Promise<Response> {
+// characterAction posts to a character action endpoint and surfaces the
+// daemon's plain-text error body instead of just the status code.
+async function characterAction(path: string, body?: unknown): Promise<Response> {
   const headers: Record<string, string> = { [CLIENT_HEADER]: '1' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const res = await fetch(path, {
@@ -45,15 +44,23 @@ async function pilotAction(path: string, body?: unknown): Promise<Response> {
   return res
 }
 
-export async function launchPilotedSession(spec: {
-  provider: PilotProvider
+export async function createCharacter(spec: {
+  race: Race
+  territoryMode: TerritoryMode
   cwd: string
   branch: string
-  model: string
+  class: string
   prompt: string
-}): Promise<Session> {
-  const res = await pilotAction('/api/piloted/sessions', spec)
-  return (await res.json()) as Session
+}): Promise<Character> {
+  const res = await characterAction('/api/characters', {
+    race: spec.race,
+    territory_mode: spec.territoryMode,
+    cwd: spec.cwd,
+    branch: spec.branch,
+    class: spec.class,
+    prompt: spec.prompt,
+  })
+  return (await res.json()) as Character
 }
 
 // pickDirectory opens the daemon's native macOS folder picker and returns
@@ -66,64 +73,69 @@ export async function pickDirectory(): Promise<string | null> {
   return data.path
 }
 
-export async function fetchBranches(cwd: string): Promise<{ current: string; branches: string[] }> {
+export async function fetchBranches(cwd: string): Promise<{ isRepo: boolean; current: string; branches: string[] }> {
   const res = await fetch(`/api/branches?cwd=${encodeURIComponent(cwd)}`)
   if (!res.ok) throw new Error(`GET /api/branches: ${res.status}`)
-  return (await res.json()) as { current: string; branches: string[] }
+  const data = (await res.json()) as { is_repo: boolean; current: string; branches: string[] }
+  return { isRepo: data.is_repo, current: data.current, branches: data.branches }
 }
 
-export async function fetchCursorModels(): Promise<CursorModelOption[]> {
-  const res = await fetch('/api/cursor-models')
-  if (!res.ok) throw new Error(`GET /api/cursor-models: ${res.status}`)
-  const data = (await res.json()) as CursorModelOption[] | null
+export async function fetchCursorClasses(): Promise<CursorClassOption[]> {
+  const res = await fetch('/api/cursor-classes')
+  if (!res.ok) throw new Error(`GET /api/cursor-classes: ${res.status}`)
+  const data = (await res.json()) as CursorClassOption[] | null
   return data ?? []
 }
 
-export function sendPilotMessage(id: string, text: string): Promise<void> {
-  return pilotAction(`/api/piloted/sessions/${id}/message`, { text }).then(() => undefined)
+export function sendMessage(id: string, text: string): Promise<void> {
+  return characterAction(`/api/characters/${id}/message`, { text }).then(() => undefined)
 }
 
-export function resolvePilotPermission(id: string, requestId: string, approve: boolean): Promise<void> {
-  return pilotAction(`/api/piloted/sessions/${id}/permission`, { request_id: requestId, approve }).then(
-    () => undefined,
-  )
+export function interruptCharacter(id: string): Promise<void> {
+  return characterAction(`/api/characters/${id}/interrupt`).then(() => undefined)
 }
 
-export function interruptPilotedSession(id: string): Promise<void> {
-  return pilotAction(`/api/piloted/sessions/${id}/interrupt`).then(() => undefined)
+export function stopCharacter(id: string): Promise<void> {
+  return characterAction(`/api/characters/${id}/stop`).then(() => undefined)
 }
 
-export function cancelPilotedSession(id: string): Promise<void> {
-  return pilotAction(`/api/piloted/sessions/${id}/cancel`).then(() => undefined)
+export async function archiveCharacter(id: string): Promise<Character> {
+  const res = await characterAction(`/api/characters/${id}/archive`)
+  return (await res.json()) as Character
 }
 
-export async function resumePilotedSession(id: string): Promise<Session> {
-  const res = await pilotAction(`/api/piloted/sessions/${id}/resume`)
-  return (await res.json()) as Session
+export async function unarchiveCharacter(id: string): Promise<Character> {
+  const res = await characterAction(`/api/characters/${id}/unarchive`)
+  return (await res.json()) as Character
 }
 
-export async function archiveSession(id: string): Promise<Session> {
-  const res = await pilotAction(`/api/sessions/${id}/archive`)
-  return (await res.json()) as Session
+// dismissCharacter removes a character for good. worktreeLeftAt is
+// non-empty when an own-territory worktree had uncommitted changes and was
+// left in place rather than discarded.
+export async function dismissCharacter(id: string): Promise<{ worktreeLeftAt: string }> {
+  const res = await characterAction(`/api/characters/${id}/dismiss`)
+  const data = (await res.json()) as { worktree_left_at: string }
+  return { worktreeLeftAt: data.worktree_left_at }
 }
 
-export async function unarchiveSession(id: string): Promise<Session> {
-  const res = await pilotAction(`/api/sessions/${id}/unarchive`)
-  return (await res.json()) as Session
+// markRead clears a character's unread mark — call this when the interface
+// actually shows the user its transcript, the only thing that clears it.
+export function markRead(id: string): Promise<void> {
+  return characterAction(`/api/characters/${id}/read`).then(() => undefined)
 }
 
-export async function fetchPilotEvents(id: string): Promise<PilotEvent[]> {
-  const res = await fetch(`/api/piloted/sessions/${id}/events`)
-  if (!res.ok) throw new Error(`GET /api/piloted/sessions/${id}/events: ${res.status}`)
+export async function fetchEvents(id: string): Promise<PilotEvent[]> {
+  const res = await fetch(`/api/characters/${id}/events`)
+  if (!res.ok) throw new Error(`GET /api/characters/${id}/events: ${res.status}`)
   const data = (await res.json()) as PilotEvent[] | null
   return data ?? []
 }
 
-// subscribeToPilotEvents opens one session's live transcript stream. Kept
-// separate from subscribeToSessions's global stream so a piloted session's
-// chat can be watched without touching the dashboard's own SSE connection.
-export function subscribeToPilotEvents(id: string, onEvent: (event: PilotEvent) => void): () => void {
-  const source = new EventSource(`/api/piloted/sessions/${id}/stream`)
+// subscribeToEvents opens one character's live transcript stream. Kept
+// separate from subscribeToCharacters's global stream so a character's chat
+// can be watched without touching the dashboard's own SSE connection.
+export function subscribeToEvents(id: string, onEvent: (event: PilotEvent) => void): () => void {
+  const source = new EventSource(`/api/characters/${id}/stream`)
   source.onmessage = (event) => {
     try {
       onEvent(JSON.parse(event.data) as PilotEvent)

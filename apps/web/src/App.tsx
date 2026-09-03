@@ -1,54 +1,66 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import type { Session } from './types'
-import { fetchSessions, subscribeToSessions, unarchiveSession } from './api'
-import { NEEDS_ATTENTION, PROVIDER_LABEL, STATE_LABEL } from './sprites'
+import type { Character } from './types'
+import { fetchCharacters, subscribeToCharacters, unarchiveCharacter } from './api'
+import { NEEDS_ATTENTION, RACE_LABEL, ACTIVITY_LABEL } from './sprites'
 import PartyStand from './PartyStand'
 import QuestToken from './QuestToken'
 import SessionDrawer from './SessionDrawer'
 import RecruitPanel from './RecruitPanel'
 
 export default function App() {
-  const [sessions, setSessions] = useState<Record<string, Session>>({})
+  const [characters, setCharacters] = useState<Record<string, Character>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [showNewForm, setShowNewForm] = useState(false)
+  const [showRecruit, setShowRecruit] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
-    fetchSessions()
+    fetchCharacters()
       .then((list) => {
-        const byId: Record<string, Session> = {}
-        for (const s of list) byId[s.id] = s
-        setSessions(byId)
+        const byId: Record<string, Character> = {}
+        for (const c of list) byId[c.id] = c
+        setCharacters(byId)
       })
       .catch((err) => setError(String(err)))
       .finally(() => setLoading(false))
 
-    return subscribeToSessions((session) => {
-      setSessions((prev) => ({ ...prev, [session.id]: session }))
+    return subscribeToCharacters((character) => {
+      setCharacters((prev) => ({ ...prev, [character.id]: character }))
     })
   }, [])
 
-  const { questSessions, urgentCamp, calmCamp, archivedSessions } = useMemo(() => {
-    const all = Object.values(sessions).sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
-    const visible = all.filter((s) => !s.archived)
-    const quest = visible.filter((s) => s.state === 'working')
-    const camp = visible.filter((s) => s.state !== 'working')
+  const { questCharacters, urgentCamp, calmCamp, archivedCharacters } = useMemo(() => {
+    const all = Object.values(characters).sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+    const visible = all.filter((c) => !c.archived)
+    const quest = visible.filter((c) => c.activity === 'working')
+    const camp = visible.filter((c) => c.activity !== 'working')
     return {
-      questSessions: quest,
-      urgentCamp: camp.filter((s) => NEEDS_ATTENTION.includes(s.state)),
-      calmCamp: camp.filter((s) => !NEEDS_ATTENTION.includes(s.state)),
-      archivedSessions: all.filter((s) => s.archived),
+      questCharacters: quest,
+      urgentCamp: camp.filter((c) => NEEDS_ATTENTION.includes(c.activity)),
+      calmCamp: camp.filter((c) => !NEEDS_ATTENTION.includes(c.activity)),
+      archivedCharacters: all.filter((c) => c.archived),
     }
-  }, [sessions])
+  }, [characters])
 
-  const total = questSessions.length + urgentCamp.length + calmCamp.length
-  const selectedSession = selectedId ? (sessions[selectedId] ?? null) : null
+  const total = questCharacters.length + urgentCamp.length + calmCamp.length
+  const selectedCharacter = selectedId ? (characters[selectedId] ?? null) : null
 
-  const selectSession = useCallback((id: string) => {
+  const selectCharacter = useCallback((id: string) => {
     setSelectedId((prev) => (prev === id ? null : id))
   }, [])
+
+  const dismissCharacterLocally = useCallback(
+    (id: string) => {
+      setCharacters((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      setSelectedId((prev) => (prev === id ? null : prev))
+    },
+    [],
+  )
 
   return (
     <div className="app">
@@ -56,42 +68,39 @@ export default function App() {
         <div>
           <h1 className="pixel-face">LiveAgentsView</h1>
           <span className="subtitle">
-            {total} session{total === 1 ? '' : 's'} known
+            {total} character{total === 1 ? '' : 's'} known
           </span>
         </div>
         <div className="topbar-actions">
           <button type="button" className="pixel-btn archived-btn" onClick={() => setShowArchived(true)}>
-            Archived ({archivedSessions.length})
+            Archived ({archivedCharacters.length})
           </button>
-          <button type="button" className="pixel-btn recruit-btn" onClick={() => setShowNewForm(true)}>
-            + Recruit session
+          <button type="button" className="pixel-btn recruit-btn" onClick={() => setShowRecruit(true)}>
+            + Recruit
           </button>
         </div>
       </header>
 
-      {error && <div className="banner banner-error">Could not load sessions: {error}</div>}
+      {error && <div className="banner banner-error">Could not load characters: {error}</div>}
 
       {!loading && total === 0 && !error && (
-        <div className="empty">
-          No sessions yet. Run <code>lav init</code>, then start a Claude Code, Codex or Cursor session natively — it
-          will show up here. Or recruit a piloted session above.
-        </div>
+        <div className="empty">No characters yet. Recruit one above to bring it to camp.</div>
       )}
 
       <div className="layout-row">
         <aside className="sidebar">
           <div className="sidebar-header">
             <span className="pixel-face">OUT ON QUESTS</span>
-            <span className="count">{questSessions.length}</span>
+            <span className="count">{questCharacters.length}</span>
           </div>
           <div className="sidebar-list">
             {loading ? (
               <div className="sidebar-empty">Loading…</div>
-            ) : questSessions.length === 0 ? (
+            ) : questCharacters.length === 0 ? (
               <div className="sidebar-empty">No one is out right now.</div>
             ) : (
-              questSessions.map((s) => (
-                <QuestToken key={s.id} session={s} selected={s.id === selectedId} onSelect={selectSession} />
+              questCharacters.map((c) => (
+                <QuestToken key={c.id} character={c} selected={c.id === selectedId} onSelect={selectCharacter} />
               ))
             )}
           </div>
@@ -111,13 +120,13 @@ export default function App() {
           </div>
           <div className="camp-floor">
             <div className="camp-row back">
-              {calmCamp.map((s) => (
-                <PartyStand key={s.id} session={s} calm selected={s.id === selectedId} onSelect={selectSession} />
+              {calmCamp.map((c) => (
+                <PartyStand key={c.id} character={c} calm selected={c.id === selectedId} onSelect={selectCharacter} />
               ))}
             </div>
             <div className="camp-row front">
-              {urgentCamp.map((s) => (
-                <PartyStand key={s.id} session={s} selected={s.id === selectedId} onSelect={selectSession} />
+              {urgentCamp.map((c) => (
+                <PartyStand key={c.id} character={c} selected={c.id === selectedId} onSelect={selectCharacter} />
               ))}
             </div>
           </div>
@@ -128,41 +137,42 @@ export default function App() {
       </div>
 
       <SessionDrawer
-        session={selectedSession}
+        character={selectedCharacter}
         onClose={() => setSelectedId(null)}
-        onSessionUpdate={(s) => setSessions((prev) => ({ ...prev, [s.id]: s }))}
+        onCharacterUpdate={(c) => setCharacters((prev) => ({ ...prev, [c.id]: c }))}
+        onDismissed={dismissCharacterLocally}
       />
 
-      {showNewForm && (
+      {showRecruit && (
         <RecruitPanel
-          onCancel={() => setShowNewForm(false)}
-          onLaunched={(session) => {
-            setSessions((prev) => ({ ...prev, [session.id]: session }))
-            setShowNewForm(false)
-            setSelectedId(session.id)
+          onCancel={() => setShowRecruit(false)}
+          onRecruited={(character) => {
+            setCharacters((prev) => ({ ...prev, [character.id]: character }))
+            setShowRecruit(false)
+            setSelectedId(character.id)
           }}
         />
       )}
 
       {showArchived && (
-        <ArchivedSessionsModal
-          sessions={archivedSessions}
+        <ArchivedCharactersModal
+          characters={archivedCharacters}
           onClose={() => setShowArchived(false)}
-          onUnarchive={(session) => setSessions((prev) => ({ ...prev, [session.id]: session }))}
+          onUnarchive={(character) => setCharacters((prev) => ({ ...prev, [character.id]: character }))}
         />
       )}
     </div>
   )
 }
 
-function ArchivedSessionsModal({
-  sessions,
+function ArchivedCharactersModal({
+  characters,
   onClose,
   onUnarchive,
 }: {
-  sessions: Session[]
+  characters: Character[]
   onClose: () => void
-  onUnarchive: (session: Session) => void
+  onUnarchive: (character: Character) => void
 }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -171,7 +181,7 @@ function ArchivedSessionsModal({
     (id: string) => {
       setBusyId(id)
       setError(null)
-      unarchiveSession(id)
+      unarchiveCharacter(id)
         .then(onUnarchive)
         .catch((err) => setError(String(err)))
         .finally(() => setBusyId(null))
@@ -182,24 +192,24 @@ function ArchivedSessionsModal({
   return (
     <div className="modal-scrim" onClick={onClose}>
       <div className="modal archived-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 className="pixel-face">Archived sessions</h2>
+        <h2 className="pixel-face">Archived characters</h2>
         {error && <div className="banner banner-error">{error}</div>}
-        {sessions.length === 0 ? (
-          <p className="archived-empty">No archived sessions.</p>
+        {characters.length === 0 ? (
+          <p className="archived-empty">No archived characters.</p>
         ) : (
           <ul className="archived-list">
-            {sessions.map((s) => (
-              <li key={s.id} className="archived-row">
+            {characters.map((c) => (
+              <li key={c.id} className="archived-row">
                 <div className="archived-row-info">
                   <span className="archived-row-title">
-                    {PROVIDER_LABEL[s.provider]} — {s.repo || s.cwd || s.id}
+                    {RACE_LABEL[c.race]} — {c.repo || c.territory.path || c.id}
                   </span>
                   <span className="archived-row-meta">
-                    {STATE_LABEL[s.state]}
-                    {s.last_message ? ` · ${s.last_message.slice(0, 120)}` : ''}
+                    {ACTIVITY_LABEL[c.activity]}
+                    {c.last_message ? ` · ${c.last_message.slice(0, 120)}` : ''}
                   </span>
                 </div>
-                <button type="button" disabled={busyId === s.id} onClick={() => unarchive(s.id)}>
+                <button type="button" disabled={busyId === c.id} onClick={() => unarchive(c.id)}>
                   Unarchive
                 </button>
               </li>

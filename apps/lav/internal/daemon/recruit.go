@@ -36,10 +36,11 @@ func (s *Server) handlePickDirectory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"path": path})
 }
 
-// handleListBranches returns the current branch and local branch list for
-// the git repo at ?cwd=. A directory that is not a git repo is not an
-// error — a piloted session can run in a non-repo directory today, so this
-// just reports no branches and lets the recruit panel skip the trail field.
+// handleListBranches returns whether ?cwd= is a git repository, its current
+// branch and its local branch list. A directory that is not a git repo is
+// not an error — it can still host a shared territory — so this reports
+// is_repo:false with empty branches rather than failing, letting the
+// recruit panel explain why own territory is unavailable there.
 func (s *Server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 	cwd := r.URL.Query().Get("cwd")
 	if cwd == "" {
@@ -48,6 +49,7 @@ func (s *Server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := struct {
+		IsRepo   bool     `json:"is_repo"`
 		Current  string   `json:"current"`
 		Branches []string `json:"branches"`
 	}{Branches: []string{}}
@@ -57,6 +59,7 @@ func (s *Server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
+	resp.IsRepo = true
 	if out, err := exec.Command("git", "-C", cwd, "branch", "--show-current").Output(); err == nil {
 		resp.Current = strings.TrimSpace(string(out))
 	}
@@ -117,7 +120,7 @@ func (c *cursorModelsCache) get() ([]cursorModelOption, error) {
 	return models, nil
 }
 
-func (s *Server) handleCursorModels(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleCursorClasses(w http.ResponseWriter, r *http.Request) {
 	models, err := s.cursorModels.get()
 	if err != nil {
 		http.Error(w, "list cursor models: "+err.Error(), http.StatusInternalServerError)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ClaudeClassId, CursorModelOption, PilotProvider, Session } from './types'
-import { fetchBranches, fetchCursorModels, launchPilotedSession, pickDirectory } from './api'
-import { ProviderRune, MapRune, ShieldRune, HoodRune, SatchelRune, SignpostRune, SparkRune, SearchRune } from './Glyphs'
+import type { ClaudeClassId, Character, CursorClassOption, Race, TerritoryMode } from './types'
+import { createCharacter, fetchBranches, fetchCursorClasses, pickDirectory } from './api'
+import { RaceRune, MapRune, ShieldRune, HoodRune, SatchelRune, SignpostRune, SparkRune, SearchRune } from './Glyphs'
 
 interface ClaudeClass {
   id: ClaudeClassId
@@ -10,7 +10,6 @@ interface ClaudeClass {
   tags: string[]
   depth: number
   speed: number
-  arrives: string
   Rune: typeof ShieldRune
 }
 
@@ -22,17 +21,15 @@ const CLAUDE_CLASSES: ClaudeClass[] = [
     tags: ['Big refactors', 'Gnarly bugs', 'Unfamiliar code'],
     depth: 90,
     speed: 30,
-    arrives: 'Dragonkin Warrior',
     Rune: ShieldRune,
   },
   {
     id: 'sonnet',
     name: 'SONNET',
     flavor: 'The all-rounder. Reliable on any road.',
-    tags: ['Everyday features', 'Most sessions'],
+    tags: ['Everyday features', 'Most quests'],
     depth: 60,
     speed: 60,
-    arrives: 'Elf Rogue',
     Rune: HoodRune,
   },
   {
@@ -42,7 +39,6 @@ const CLAUDE_CLASSES: ClaudeClass[] = [
     tags: ['Quick fixes', 'Fast loops', 'Small chores'],
     depth: 30,
     speed: 90,
-    arrives: 'Halfling (small)',
     Rune: SatchelRune,
   },
 ]
@@ -63,18 +59,19 @@ function familyFor(id: string): string {
 
 interface Props {
   onCancel: () => void
-  onLaunched: (session: Session) => void
+  onRecruited: (character: Character) => void
 }
 
-export default function RecruitPanel({ onCancel, onLaunched }: Props) {
-  const [provider, setProvider] = useState<PilotProvider>('claude-code')
+export default function RecruitPanel({ onCancel, onRecruited }: Props) {
+  const [race, setRace] = useState<Race>('claude-code')
   const [claudeClass, setClaudeClass] = useState<ClaudeClassId>('opus')
-  const [cursorModels, setCursorModels] = useState<CursorModelOption[]>([])
-  const [cursorModelsError, setCursorModelsError] = useState<string | null>(null)
-  const [cursorModel, setCursorModel] = useState('auto')
+  const [cursorClasses, setCursorClasses] = useState<CursorClassOption[]>([])
+  const [cursorClassesError, setCursorClassesError] = useState<string | null>(null)
+  const [cursorClass, setCursorClass] = useState('auto')
   const [filter, setFilter] = useState('')
+  const [territoryMode, setTerritoryMode] = useState<TerritoryMode>('own')
   const [cwd, setCwd] = useState('')
-  const [repoInfo, setRepoInfo] = useState<{ current: string; branches: string[] } | null>(null)
+  const [repoInfo, setRepoInfo] = useState<{ isRepo: boolean; current: string; branches: string[] } | null>(null)
   const [branch, setBranch] = useState('')
   const [prompt, setPrompt] = useState('')
   const [pickerBusy, setPickerBusy] = useState(false)
@@ -82,14 +79,14 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   // Fetched once per panel open, on first switch to Cursor — the daemon
-  // caches the underlying `agent --list-models` call itself, so this just
-  // avoids re-fetching every time the user flips providers back and forth.
+  // caches the underlying class-catalog call itself, so this just avoids
+  // re-fetching every time the user flips races back and forth.
   useEffect(() => {
-    if (provider !== 'cursor' || cursorModels.length > 0 || cursorModelsError) return
-    fetchCursorModels()
-      .then(setCursorModels)
-      .catch((err) => setCursorModelsError(String(err)))
-  }, [provider, cursorModels.length, cursorModelsError])
+    if (race !== 'cursor' || cursorClasses.length > 0 || cursorClassesError) return
+    fetchCursorClasses()
+      .then(setCursorClasses)
+      .catch((err) => setCursorClassesError(String(err)))
+  }, [race, cursorClasses.length, cursorClassesError])
 
   const openMap = useCallback(() => {
     setPickerBusy(true)
@@ -102,43 +99,52 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
         setRepoInfo(null)
         return fetchBranches(path).then((info) => {
           setRepoInfo(info)
-          setBranch(info.current)
+          // Shared territory runs on whatever is already checked out, so
+          // showing it here is informational. Own territory branches off
+          // this repo into a new worktree — preselecting the branch that's
+          // already checked out in the main one would only ever collide,
+          // so it starts empty and falls back to an auto-generated name.
+          if (territoryMode === 'shared') setBranch(info.current)
         })
       })
       .catch((err) => setError(String(err)))
       .finally(() => setPickerBusy(false))
-  }, [])
+  }, [territoryMode])
 
-  const autoOption = cursorModels.find((m) => m.id === 'auto')
+  const autoOption = cursorClasses.find((m) => m.id === 'auto')
   const grouped = useMemo(() => {
     const q = filter.trim().toLowerCase()
-    const byFamily = new Map<string, CursorModelOption[]>()
-    for (const m of cursorModels) {
+    const byFamily = new Map<string, CursorClassOption[]>()
+    for (const m of cursorClasses) {
       if (m.id === 'auto') continue
       if (q && !m.id.toLowerCase().includes(q) && !m.label.toLowerCase().includes(q)) continue
       if (!byFamily.has(familyFor(m.id))) byFamily.set(familyFor(m.id), [])
       byFamily.get(familyFor(m.id))!.push(m)
     }
     return byFamily
-  }, [cursorModels, filter])
+  }, [cursorClasses, filter])
 
-  const model = provider === 'cursor' ? cursorModel : claudeClass
-  // Cursor has no such thing as an idle process — every turn is its own
-  // one-shot invocation with the prompt baked into its argv, so a Cursor
-  // recruit needs something to do from the very first launch. Claude Code's
-  // process just sits attached waiting on stdin, so its first message can
-  // wait for the drawer.
-  const needsPrompt = provider === 'cursor'
-  const canSubmit = cwd.trim() !== '' && (!needsPrompt || prompt.trim() !== '') && !busy
+  const cls = race === 'cursor' ? cursorClass : claudeClass
+  // Own territory needs a git repository to branch from; a plain directory
+  // can only ever host a shared territory.
+  const notARepo = territoryMode === 'own' && repoInfo !== null && !repoInfo.isRepo
+  const canSubmit = cwd.trim() !== '' && !notARepo && !busy
 
   const submit = useCallback(() => {
     setBusy(true)
     setError(null)
-    launchPilotedSession({ provider, cwd: cwd.trim(), branch: branch.trim(), model, prompt: prompt.trim() })
-      .then(onLaunched)
+    createCharacter({
+      race,
+      territoryMode,
+      cwd: cwd.trim(),
+      branch: territoryMode === 'own' ? branch.trim() : '',
+      class: cls,
+      prompt: prompt.trim(),
+    })
+      .then(onRecruited)
       .catch((err) => setError(String(err)))
       .finally(() => setBusy(false))
-  }, [provider, cwd, branch, model, prompt, onLaunched])
+  }, [race, territoryMode, cwd, branch, cls, prompt, onRecruited])
 
   return (
     <div className="scrim recruit-scrim open" onClick={onCancel}>
@@ -153,26 +159,18 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
           {error && <div className="banner banner-error">{error}</div>}
 
           <div>
-            <span className="field-label">Provider</span>
+            <span className="field-label">Race</span>
             <div className="provider-row">
-              <button
-                type="button"
-                className={`provider-pick${provider === 'claude-code' ? ' on' : ''}`}
-                onClick={() => setProvider('claude-code')}
-              >
-                <ProviderRune provider="claude-code" /> Claude Code
+              <button type="button" className={`provider-pick${race === 'claude-code' ? ' on' : ''}`} onClick={() => setRace('claude-code')}>
+                <RaceRune race="claude-code" /> Claude Code
               </button>
-              <button
-                type="button"
-                className={`provider-pick${provider === 'cursor' ? ' on' : ''}`}
-                onClick={() => setProvider('cursor')}
-              >
-                <ProviderRune provider="cursor" /> Cursor
+              <button type="button" className={`provider-pick${race === 'cursor' ? ' on' : ''}`} onClick={() => setRace('cursor')}>
+                <RaceRune race="cursor" /> Cursor
               </button>
             </div>
           </div>
 
-          {provider === 'claude-code' ? (
+          {race === 'claude-code' ? (
             <div>
               <span className="field-label">Class</span>
               <div className="class-rows">
@@ -213,7 +211,6 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
                           </div>
                         </div>
                       </div>
-                      <div className="cr-arrives">→ arrives a {c.arrives}</div>
                     </div>
                   </button>
                 ))}
@@ -221,9 +218,9 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
             </div>
           ) : (
             <div>
-              <span className="field-label">Model</span>
-              {cursorModelsError && <div className="banner banner-error">{cursorModelsError}</div>}
-              <button type="button" className={`auto-card${cursorModel === 'auto' ? ' on' : ''}`} onClick={() => setCursorModel('auto')}>
+              <span className="field-label">Class</span>
+              {cursorClassesError && <div className="banner banner-error">{cursorClassesError}</div>}
+              <button type="button" className={`auto-card${cursorClass === 'auto' ? ' on' : ''}`} onClick={() => setCursorClass('auto')}>
                 <div className="cr-icon">
                   <SparkRune className="rune md" />
                 </div>
@@ -233,55 +230,79 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
                     <span className="auto-badge">RECOMMENDED</span>
                   </div>
                   <div className="cr-flavor">
-                    {autoOption?.label ?? "Cursor picks the best model for the task automatically — its own default."}
+                    {autoOption?.label ?? "Cursor picks the best class for the task automatically — its own default."}
                   </div>
                 </div>
               </button>
 
               <div className="or-label">
-                or choose a specific model — {cursorModels.length > 0 ? cursorModels.length - 1 : '…'} available right now
+                or choose a specific class — {cursorClasses.length > 0 ? cursorClasses.length - 1 : '…'} available right now
               </div>
               <div className="filter-wrap">
                 <SearchRune />
                 <input type="text" placeholder="Filter by name or id…" value={filter} onChange={(e) => setFilter(e.target.value)} />
               </div>
               <div className="cursor-list">
-                {[...grouped.entries()].map(([fam, models]) => (
+                {[...grouped.entries()].map(([fam, classes]) => (
                   <div className="model-group" key={fam}>
                     <div className="model-group-head">
                       <span>{fam}</span>
-                      <b>{models.length}</b>
+                      <b>{classes.length}</b>
                     </div>
-                    {models.map((m) => (
+                    {classes.map((c) => (
                       <div
-                        key={m.id}
+                        key={c.id}
                         role="button"
                         tabIndex={0}
-                        className={`model-row${cursorModel === m.id ? ' on' : ''}`}
-                        onClick={() => setCursorModel(m.id)}
-                        onKeyDown={(e) => e.key === 'Enter' && setCursorModel(m.id)}
+                        className={`model-row${cursorClass === c.id ? ' on' : ''}`}
+                        onClick={() => setCursorClass(c.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && setCursorClass(c.id)}
                       >
-                        <span className="mname">{m.label}</span>
-                        <span className="mid mono">{m.id}</span>
+                        <span className="mname">{c.label}</span>
+                        <span className="mid mono">{c.id}</span>
                       </div>
                     ))}
                   </div>
                 ))}
-                {cursorModels.length === 0 && !cursorModelsError && <div className="list-note">Loading Cursor's model list…</div>}
-                {cursorModels.length > 0 && grouped.size === 0 && <div className="list-note">No models match "{filter}".</div>}
+                {cursorClasses.length === 0 && !cursorClassesError && <div className="list-note">Loading Cursor's class list…</div>}
+                {cursorClasses.length > 0 && grouped.size === 0 && <div className="list-note">No classes match "{filter}".</div>}
               </div>
             </div>
           )}
 
           <div>
             <span className="field-label">Territory</span>
+            <div className="provider-row">
+              <button
+                type="button"
+                className={`provider-pick${territoryMode === 'own' ? ' on' : ''}`}
+                onClick={() => setTerritoryMode('own')}
+              >
+                Own worktree
+              </button>
+              <button
+                type="button"
+                className={`provider-pick${territoryMode === 'shared' ? ' on' : ''}`}
+                onClick={() => setTerritoryMode('shared')}
+              >
+                Shared directory
+              </button>
+            </div>
+            <p className="territory-hint">
+              {territoryMode === 'own'
+                ? 'Works in its own git worktree, branched off the repo you pick below — your checkout is never touched.'
+                : 'Works directly in the directory you pick below, exactly as it is — no git command is ever run against it.'}
+            </p>
+          </div>
+
+          <div>
             {cwd ? (
               <div className="chip">
                 <MapRune />
                 <div>
                   <div className="path mono">{cwd}</div>
                   <div className="meta">
-                    {repoInfo ? (repoInfo.branches.length > 0 ? `git repo · ${repoInfo.branches.length} branches` : 'not a git repository') : ''}
+                    {repoInfo ? (repoInfo.isRepo ? `git repo · ${repoInfo.branches.length} branches` : 'not a git repository') : ''}
                   </div>
                 </div>
                 <button type="button" className="re" onClick={openMap}>
@@ -293,34 +314,42 @@ export default function RecruitPanel({ onCancel, onLaunched }: Props) {
                 <MapRune /> {pickerBusy ? 'Opening Finder…' : 'Open the map…'}
               </button>
             )}
+            {notARepo && (
+              <p className="territory-hint warn">
+                Not a git repository — own territory is unavailable here. Pick shared territory, or a different directory.
+              </p>
+            )}
           </div>
 
-          {cwd && repoInfo && repoInfo.branches.length > 0 && (
+          {territoryMode === 'own' && cwd && repoInfo?.isRepo && (
             <div>
-              <span className="field-label">Trail</span>
-              <select className="trail" value={branch} onChange={(e) => setBranch(e.target.value)}>
+              <span className="field-label">Trail (branch)</span>
+              <input
+                className="trail"
+                list="branch-suggestions"
+                type="text"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                placeholder={`lav/${race === 'cursor' ? 'cursor' : 'claude'}-…`}
+              />
+              <datalist id="branch-suggestions">
                 {repoInfo.branches.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                    {b === repoInfo.current ? ' (current)' : ''}
-                  </option>
+                  <option key={b} value={b} />
                 ))}
-              </select>
+              </datalist>
             </div>
           )}
 
-          {needsPrompt && (
-            <div>
-              <span className="field-label">First message</span>
-              <textarea
-                className="recruit-prompt"
-                rows={3}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Cursor starts fresh each turn, so it needs something to do right away…"
-              />
-            </div>
-          )}
+          <div>
+            <span className="field-label">First message (optional)</span>
+            <textarea
+              className="recruit-prompt"
+              rows={3}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Give it a quest now, or leave blank and talk to it once it's at camp…"
+            />
+          </div>
         </div>
         <div className="recruit-foot">
           <button type="button" className="horn-btn" disabled={!canSubmit} onClick={submit}>

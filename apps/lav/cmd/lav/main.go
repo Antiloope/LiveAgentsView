@@ -1,7 +1,7 @@
 // Command lav is both the daemon and its own CLI: `lav serve` runs the
 // daemon, `lav status` is a quick CLI-only view without opening the
-// browser, and `lav pilot-runner`/`lav pilot-mcp` are internal helpers a
-// piloted session's process runs under — not meant to be invoked by hand.
+// browser, and `lav pilot-runner` is an internal helper a character's
+// process runs under — not meant to be invoked by hand.
 package main
 
 import (
@@ -15,7 +15,6 @@ import (
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/classifier"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/daemon"
-	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotmcp"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/pilotrunner"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/service"
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/store"
@@ -37,10 +36,6 @@ func main() {
 	case "pilot-runner":
 		if err := pilotrunner.Run(os.Args[2:]); err != nil {
 			log.Fatalf("pilot-runner: %v", err)
-		}
-	case "pilot-mcp":
-		if err := pilotmcp.Run(os.Args[2:]); err != nil {
-			log.Fatalf("pilot-mcp: %v", err)
 		}
 	default:
 		usage()

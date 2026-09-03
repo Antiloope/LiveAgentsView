@@ -53,8 +53,13 @@ func Prepare(lavHome string, spec Spec) (model.Territory, error) {
 	if branch == "" {
 		branch = "lav/" + spec.CharacterID[:8]
 	}
-	if busy, where := checkedOutElsewhere(spec.SourceRepo, branch); busy {
-		return model.Territory{}, fmt.Errorf("branch %s is already checked out at %s", branch, where)
+	// A branch already checked out elsewhere (typically the repo's own
+	// primary checkout, which is exactly what the recruit form preselects)
+	// can never be reused for a new worktree — git forbids it outright. That
+	// is not a reason to fail recruiting: fall back to an auto-generated
+	// branch off the same starting point, same as an empty request.
+	if busy, _ := checkedOutElsewhere(spec.SourceRepo, branch); busy {
+		branch = "lav/" + spec.CharacterID[:8]
 	}
 
 	path := filepath.Join(worktreesRoot(lavHome), filepath.Base(spec.SourceRepo), spec.CharacterID)

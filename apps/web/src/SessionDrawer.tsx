@@ -326,6 +326,28 @@ function PilotChat({
   )
 }
 
+// cursor-agent's tool_call payload wraps args in a discriminated union
+// alongside call bookkeeping — {"shellToolCall":{"args":{"command":...,
+// "parsingResult":{...}},"description":"..."},"toolCallId":"...",
+// "startedAtMs":"...","hookAdditionalContexts":[]} — nearly all of it noise
+// next to the one field worth showing. Pull that field out for a one-line
+// summary instead of dumping the whole thing; shapes with no such field
+// (Claude Code's flat tool_input) fall through to the raw JSON.
+function summarizeCursorToolInput(input: unknown): string | null {
+  if (typeof input !== 'object' || input === null) return null
+  for (const value of Object.values(input as Record<string, unknown>)) {
+    if (typeof value !== 'object' || value === null) continue
+    const args = (value as Record<string, unknown>).args
+    if (typeof args !== 'object' || args === null) continue
+    const a = args as Record<string, unknown>
+    for (const field of ['command', 'query', 'pattern', 'path', 'file_path']) {
+      const v = a[field]
+      if (typeof v === 'string' && v !== '') return v.length > 300 ? v.slice(0, 300) + '…' : v
+    }
+  }
+  return null
+}
+
 function TranscriptEntry({ event }: { event: PilotEvent }) {
   switch (event.kind) {
     case 'user':
@@ -341,13 +363,19 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
           <p>{event.text}</p>
         </div>
       )
-    case 'tool_call':
+    case 'tool_call': {
+      const summary = summarizeCursorToolInput(event.tool_input)
       return (
         <div className="bubble tool">
           <span className="bubble-label">→ {event.tool_name || 'tool'}</span>
-          {event.tool_input !== undefined && <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 2000)}</pre>}
+          {summary !== null ? (
+            <p>{summary}</p>
+          ) : (
+            event.tool_input !== undefined && <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 2000)}</pre>
+          )}
         </div>
       )
+    }
     case 'error':
       return (
         <div className="bubble error">

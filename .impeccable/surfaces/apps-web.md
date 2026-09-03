@@ -27,10 +27,12 @@ camp when it needs the player or has finished — the attention queue IS the sce
 a status list.
 
 OWN-WORLD: 16-bit medieval pixel art (code-drawn D&D party sprites, beveled wood-frame
-panels, gold trim) paired with a modern legible sans (Nunito) for everything read at
-length; a pixel display face (Pixelify Sans) is reserved for HUD chrome only — names,
-state labels, buttons. RPG-style HP/mana bars (random placeholder until real token data
-exists). Drawn pixel-block icons replace any unicode glyph.
+panels, rust/ember trim) paired with a modern legible sans (Work Sans) for everything
+read at length; a pixel display face (Jersey 15) is reserved for HUD chrome only — names,
+state labels, buttons. A warm ember dusk (brown/rust/forest) replaced the original cool
+violet night — same camp, less magic-lit, more firelit. RPG-style HP/mana bars (random
+placeholder until real token data exists). Drawn pixel-block icons replace any unicode
+glyph.
 
 STORY: Whoever is `working` stands in a left "Out on quests" sidebar. Whoever is
 waiting/blocked/failed/done/idle is at camp, lit by a central fire — urgent front row,

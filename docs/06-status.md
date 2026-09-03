@@ -3,7 +3,9 @@
 Mirror of the definition documents and the code that exists. **Decides nothing.**
 Updated when a fact changes, never to anticipate one.
 
-Last updated: 2026-09-02 (piloted-only-mode specified)
+Last updated: 2026-09-03 (character model redesign specified: vocabulary, two axes,
+territory, lifecycle and the removal of permission management decided and distilled;
+character-model-redesign spec created, ready to implement)
 
 ## Documentation
 
@@ -11,10 +13,10 @@ Last updated: 2026-09-02 (piloted-only-mode specified)
 |---|---|
 | Vision | defined — [01-vision.md](01-vision.md) |
 | Scope | defined — [02-scope.md](02-scope.md) |
-| Decisions | 16 entries — [03-decisions.md](03-decisions.md) |
-| Open questions | 2 (Q-03, Q-06), both deferred — [04-open-questions.md](04-open-questions.md) |
-| Ideas to discuss | 10 unagreed (IDEA-06 annotated, still unagreed) — [05-ideas-to-discuss.md](05-ideas-to-discuss.md) |
-| Inbox | 2026-09-01 product session, 2026-09-02 native-runtime follow-ups, and 2026-09-02 dashboard-scope/restart-continuity session, all distilled |
+| Decisions | 24 entries — [03-decisions.md](03-decisions.md). The seven from 2026-09-03 supersede the 2026-09-01 canonical state model and the 2026-09-02 archive decision |
+| Open questions | 4 (Q-03, Q-06 deferred; Q-10, Q-11 open and non-blocking) — [04-open-questions.md](04-open-questions.md) |
+| Ideas to discuss | 12 unagreed (IDEA-11 and IDEA-12 added 2026-09-03) — [05-ideas-to-discuss.md](05-ideas-to-discuss.md) |
+| Inbox | 2026-09-01 product session, 2026-09-02 native-runtime follow-ups, 2026-09-02 dashboard-scope/restart-continuity session, 2026-09-02 archive-a-session session, and 2026-09-03 character-model session, all distilled. The CSRF finding in the 2026-09-03 block went to its own spec rather than to a definition document — it is a security fix, not a definition |
 
 ## Product
 
@@ -23,8 +25,12 @@ Last updated: 2026-09-02 (piloted-only-mode specified)
 | Posture | decided — piloted only as of 2026-09-02 (supersedes observer + opt-in pilot); adopted/hooks removed entirely, not just hidden |
 | Stack | decided — Go, SQLite, single binary with embedded frontend (React + Vite) |
 | Providers | Claude Code and Cursor usable (piloted adapters exist); Codex has no representation until a driver adapter is built (see 2026-09-02 in [03-decisions.md](03-decisions.md)) |
-| Attention taxonomy | partial — completion and classifier decided, full table in IDEA-01 |
-| Canonical event model | decided — WORKING/WAITING/BLOCKED/DONE/FAILED/IDLE, validated against the 3 providers' docs |
+| Vocabulary | decided 2026-09-03 — character / race / class / territory / quest / camp. Not built yet: the code and interface still say session, provider and model |
+| Attention taxonomy | partial — completion and classifier decided, full table in IDEA-01. P0 (Blocked) has had no content since permission management was dropped on 2026-09-03 |
+| Canonical event model | redecided 2026-09-03 — two axes: activity (`ready`/`working`/`waiting`/`failed`) plus an unread mark, and presence (awake/asleep) observed, never stored. Supersedes WORKING/WAITING/BLOCKED/DONE/FAILED/IDLE. Not built yet |
+| Permissions | decided 2026-09-03 — not mediated at all; every race runs auto-approving. Not built yet: Claude Code still launches with a live permission gate |
+| Territory | decided 2026-09-03 — own worktree (default) or shared directory, and never `git checkout` on the user's directory. Not built yet: launching with a branch still checks it out in place |
+| Lifecycle | decided 2026-09-03 — archiving sleeps a character and frees its memory, in any activity; dismissing removes it. Not built yet: archiving still leaves the process running and is refused while working |
 
 ## Code and infrastructure
 
@@ -72,18 +78,50 @@ Last updated: 2026-09-02 (piloted-only-mode specified)
   adopted-mode-mvp doesn't apply once native execution is the real run path). Fixed,
   rebuilt via `scripts/lav-service-install.sh`, and reconfirmed live on this machine:
   `lsof` now shows `127.0.0.1:8420` only, `healthz` returns `200`.
+- [piloted-only-mode](sdd/specs/piloted-only-mode.md) — validated. Adopted mode and hooks
+  ingestion removed from the codebase entirely; the real hooks a previous `lav init` had
+  written to this machine's Claude Code/Codex/Cursor configs were uninstalled for real,
+  backed up first. Piloted sessions gained restart continuity: a detached `lav
+  pilot-runner` process now owns the real `claude`/`agent` child, survives a `lav`
+  restart, and the daemon reconnects on startup with no dropped/duplicated transcript and
+  no lost in-progress turn. Three gaps found by the first validation pass (interrupt
+  mismarked as failed, permission approve/deny never reaching the CLI, Resume able to
+  orphan a still-running process) were fixed and live re-verified through the real
+  dashboard.
+- [local-api-hardening](sdd/specs/local-api-hardening.md) — **ready, not started.**
+  Rejects cross-site requests to the daemon (`Origin`/`Sec-Fetch-Site`, a `Host` check
+  against DNS rebinding, a required `Content-Type`, and a custom header on every
+  state-changing call). Closes a hole confirmed live on 2026-09-03: a cross-origin simple
+  POST reaches every endpoint, so any open web page can launch a character here.
+- [character-model-redesign](sdd/specs/character-model-redesign.md) — **ready, not
+  started.** Implements the seven 2026-09-03 decisions in one pass: the character
+  vocabulary, activity/presence as two axes with `done` becoming an unread mark, own-vs-
+  shared territory with real git worktrees, a continuous reconciler so the daemon's belief
+  cannot drift from what is running, archive-as-sleep plus dismiss, and the deletion of
+  `internal/pilotmcp` and everything else permission-related. Explicitly out of its scope:
+  the CSRF finding, the HP/MP placeholder bars, Q-10 and Q-11.
+- [archive-session](sdd/specs/archive-session.md) — validated. A session can be archived
+  from the dashboard (any state except `working`) to hide it from the camp/quest view,
+  reversibly, from a new "Archived sessions" view. Persisted as a SQLite column, added
+  idempotently for this machine's real pre-existing database; a state-changing upsert on
+  an already-archived session (e.g. its process finishing after being archived) cannot
+  silently unarchive it. No process side effect. Verified live against the real running
+  service and through the real browser UI.
 
 Index in [sdd/README.md](sdd/README.md).
 
 ## Suggested next step
 
-[piloted-only-mode](sdd/specs/piloted-only-mode.md) is `ready`, next step `implement`:
-remove adopted mode and hooks ingestion from the codebase entirely (not just the
-dashboard), uninstall the hooks a real `lav init` run already wrote to this machine's
-Claude Code/Codex/Cursor configs, and give piloted sessions a process supervisor so a
-`lav` restart no longer kills their live process. This also resolves the hooks-removal
-half of IDEA-08. Three other new, unprioritized ideas from setting up the native service
-are still open, logged as IDEA-07, IDEA-09 and IDEA-10 in
-[05-ideas-to-discuss.md](05-ideas-to-discuss.md): a `lav version` command, a friendlier
-local dashboard address, and prebuilt binary distribution with a first-run install
-wizard. None agreed yet.
+Two specs are `ready` and independent of each other.
+[local-api-hardening](sdd/specs/local-api-hardening.md) is the one to do first: the API
+has no `Origin`, `Host` or `Content-Type` check, so any web page open in the browser can
+make the daemon launch an agent on this machine — measured live, not inferred.
+[character-model-redesign](sdd/specs/character-model-redesign.md) is the larger one.
+
+`recruit-flow-redesign` is still `done`/awaiting validation, with three acceptance items
+now superseded (annotated in the spec itself).
+
+Still open and unagreed from earlier sessions: IDEA-07 (`lav version`), IDEA-09
+(friendlier local address), IDEA-10 (prebuilt binaries and a first-run wizard), IDEA-08's
+`lav service uninstall` half, and now IDEA-11 (a permission layer) and IDEA-12 (changing a
+character's class).

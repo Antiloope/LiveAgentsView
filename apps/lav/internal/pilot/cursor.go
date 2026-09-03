@@ -27,6 +27,7 @@ func (m *Manager) launchCursor(ctx context.Context, ps *pilotSession, spec Launc
 	ps.provider = model.ProviderCursor
 	ps.cwd = spec.Cwd
 	ps.branch = spec.Branch
+	ps.model = spec.Model
 
 	if resumeChatID == "" {
 		return m.launchCursorBootstrap(ctx, ps, spec)
@@ -51,6 +52,7 @@ func (m *Manager) launchCursor(ctx context.Context, ps *pilotSession, spec Launc
 // --resume/--continue rather than a persistent stdin channel.
 func (m *Manager) launchCursorBootstrap(ctx context.Context, ps *pilotSession, spec LaunchSpec) error {
 	args := []string{"-p", "--output-format", "stream-json", "--force", "--trust", "--workspace", spec.Cwd}
+	args = append(args, modelArgs(spec.Model)...)
 	if spec.Prompt != "" {
 		args = append(args, spec.Prompt)
 	}
@@ -113,7 +115,7 @@ func (m *Manager) sendCursorMessage(ctx context.Context, ps *pilotSession, text 
 	if running {
 		return ErrTurnInProgress
 	}
-	spec := LaunchSpec{Provider: model.ProviderCursor, Cwd: ps.cwd, Branch: ps.branch, Prompt: text}
+	spec := LaunchSpec{Provider: model.ProviderCursor, Cwd: ps.cwd, Branch: ps.branch, Model: ps.model, Prompt: text}
 	return m.launchCursor(ctx, ps, spec, ps.id)
 }
 

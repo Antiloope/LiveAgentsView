@@ -23,7 +23,7 @@ export default function QuestToken({ session, selected, onSelect }: Props) {
       onClick={() => onSelect(session.id)}
     >
       <div className="mini-sprite">
-        <Portrait sessionId={session.id} />
+        <Portrait sessionId={session.id} model={session.model} />
       </div>
       <div className="mini-text">
         <div className="mini-provider">

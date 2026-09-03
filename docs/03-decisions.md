@@ -240,6 +240,26 @@ interactive TTY reconnect, not line-oriented JSON piping between two programs).
 IDEA-06's narrower "let a human attach a real terminal to a piloted session" idea is
 untouched by this and stays open, unrelated to this decision.
 
+## 2026-09-02 — Sessions can be archived, reversibly, in any non-working state
+
+**Who:** Rodrigo
+**Decision:** A session can be archived from the dashboard so it stops appearing in the
+camp view. Archived is persisted server-side (SQLite), not a browser-local hide, and is
+reversible: a dedicated "Archived" view lists archived sessions with an unarchive action.
+A session can be archived in any state except `working` (`idle`, `waiting`, `blocked`,
+`done`, `failed` are all eligible) — only an in-progress turn is protected from being
+hidden out from under itself.
+**Rationale:** "Hoy los veo a todos ahí en el campamento" — every known session renders
+forever, finished ones included, with no way to reduce clutter. Persisting server-side
+keeps the property that the dashboard shows the same thing from any device against the
+same daemon, matching the existing "persists enough state and history to survive
+restarts" scope item. Reversible-by-default over a one-way hide because a stray click
+should not be able to lose track of a session with no recovery path. Restricting only
+`working` (not narrowing to `done`/`failed`) because a session that is alive but not
+actively turning (idle, waiting on the user, blocked on a permission) is just as much
+clutter as a finished one, and there is nothing unsafe about hiding it — archiving never
+touches the underlying process either way.
+
 ## 2026-09-01 — Cursor's adapter is built alongside Claude Code and Codex from the start
 
 **Who:** Rodrigo
@@ -249,3 +269,143 @@ same first spec as Claude Code and Codex, rather than deferred to a later spec.
 (no local hook surface, `cursor-agent` CLI only) is accepted as a limitation to design
 around, not a reason to postpone it.
 **Closes:** Q-09.
+
+## 2026-09-03 — Vocabulary: character, race, class, quest
+
+**Who:** Rodrigo
+**Decision:** The user-facing vocabulary is provider-neutral and stated in the camp lore.
+A **character** is the durable thing the user creates and talks to; it lives many
+**quests** over its life and returns to **camp** between them. Its **race** is the engine
+behind it (Claude Code, Cursor, Codex) and cannot be changed. Its **class** is the model
+it runs (Opus/Sonnet/Haiku, or any model from Cursor's catalog) and is changeable in
+principle. Its **territory** is where it works. The engine is never named as a concept of
+its own in the interface: it appears as the character's race, on its banner and in its
+details. "Session" remains an internal word for the provider-side conversation a
+character owns.
+**Rationale:** race and class map onto real constraints instead of decorating them. A
+character's conversation lives in its engine's own store (its session id and history), so
+it can never become another engine's character — immutable because the world makes it
+immutable. The model, by contrast, is a flag passed when a process starts, so it can
+change the next time the character wakes. Naming the engine as a race also removes the
+last place the interface reads as Claude-only or Cursor-only, which principle 2 of
+[01-vision.md](01-vision.md) asks for.
+**Consequence:** the party sprite must be determined by race, not by class as it is
+today — changing a character's model must not turn it into a different creature. Which
+archetypes belong to which race is [Q-10](04-open-questions.md).
+
+## 2026-09-03 — Two axes: what a character is doing, and whether it is awake
+
+**Who:** Rodrigo
+**Decision:** A character's condition is two independent things, not one field.
+**Activity** is what it is doing: `ready` (at camp with nothing to do), `working` (out on
+a quest), `waiting` (came back with a question), `failed` (came back badly).
+**Presence** is whether a process is alive for it: awake or asleep. Presence is not
+something the user manages — talking to an asleep character wakes it, so there is no
+resume action in the interface. `done` is removed as a state and becomes an orthogonal
+**unread** mark on the character, set when a quest ends without a question and cleared
+when the user reads its transcript. `idle` and `blocked` are removed. This supersedes the
+canonical WORKING/WAITING/BLOCKED/DONE/FAILED/IDLE model from the 2026-09-01 decision
+"Canonical event/state model, validated against the 3 providers".
+**Rationale:** the single field was answering two questions at once, which is why a
+character that is alive but has nothing to do had no way to be described and was recorded
+as `working`. Splitting them is also what normalizes the engines: Cursor starts a fresh
+process every turn and Claude Code keeps one resident, and with presence on its own axis
+that difference stops being visible at all. `done` went because it describes the user,
+not the character — a character that finished and one that was just created are in the
+same condition, and what differs is whether the result has been seen; as an unread mark
+it also implements the already-decided "an agent finished is low-priority attention,
+grouped" directly ("3 came back with news since you last looked") and gives attention
+items the auto-resolution [IDEA-03](05-ideas-to-discuss.md) asks for. `idle` went because
+the 2026-09-01 model defined it as derived from a timeout, which was never "has nothing to
+do" but "claims to be working and has been silent for N minutes" — a suspicious-activity
+signal, left unbuilt and still open as IDEA-01's P3, not a state of its own. `blocked`
+went with permission management, below.
+**How each activity clears:** `waiting` and `failed` clear when the user *acts* (answers,
+revives, archives); an unread mark clears when the user *looks*; `ready` asks for nothing.
+
+## 2026-09-03 — Territory: own worktree by default, shared directory as the explicit alternative
+
+**Who:** Rodrigo
+**Decision:** A character's territory is chosen when it is created, in one of two modes.
+**Own territory** (the default): LiveAgentsView creates and administers a git worktree
+under `~/.liveagentsview/worktrees/`, on a new or existing branch, and the character works
+only there. **Shared territory**: the character works on the chosen directory exactly as
+it is, on whatever branch is checked out, and LiveAgentsView runs no git command on it at
+all. LiveAgentsView never runs `git checkout` on a directory the user picked. A worktree
+is removed when its character is dismissed only if it has no uncommitted changes;
+otherwise it is left in place and the user is told.
+**Rationale:** picking a branch today runs `git checkout` in the user's real directory,
+switching the branch under whatever else is using it — an editor, another character.
+Worktrees also make "several characters on one repo" the normal case rather than a
+collision. Own territory is the default because, with permission gates removed (below),
+the worktree is the only thing standing between a character and the directory the user is
+working in; it is not a sandbox and does not pretend to be one, but it is the containment
+that exists.
+
+## 2026-09-03 — Consistency: presence is observed, never stored
+
+**Who:** Rodrigo
+**Decision:** SQLite stores history and intent — which characters exist, what happened to
+them, which are archived. It never stores whether a process is alive. Liveness is observed
+from the `pilot-runner` that owns the process, which is the single authority on it, and
+the daemon reconciles what it believes against what is actually running continuously while
+it runs, not only at startup. At startup it also sweeps orphans: sockets, runners and
+worktrees with no character behind them.
+**Rationale:** the same fact currently lives in three places — the persisted `state`, the
+manager's in-memory `running` flag, and the real process — and is reconciled once, at
+daemon startup. A runner killed abruptly is indistinguishable from the daemon shutting
+down, so the character is deliberately left as it was and reads as `working` forever. A
+fact that is observed rather than stored cannot drift.
+
+## 2026-09-03 — Archiving sends a character to sleep; dismissing removes it
+
+**Who:** Rodrigo
+**Decision:** Archiving a character stops its process, freeing the memory it holds, keeps
+its full transcript and its territory, and takes it out of camp. It is allowed in any
+activity, including while working, with a confirmation that says the current quest will be
+stopped. Unarchiving brings it back to camp, and talking to it wakes it with its context
+intact. A separate **dismiss** action removes a character for good, with its history, and
+removes its worktree when that worktree is clean. This supersedes the 2026-09-02 decision
+"Sessions can be archived, reversibly, in any non-working state" on both points: archiving
+now does touch the underlying process, and `working` is no longer excluded.
+**Rationale:** measured on this machine, a character that had never received a single
+message held 129 MB of RSS after three and a half hours, plus 10 MB for its runner; ten of
+them at camp is over a gigabyte held for nothing. CPU is not the cost, memory is. An
+archive that leaves the process running is a display filter, not a lifecycle. Excluding
+`working` also made the character the user most wanted to get rid of — one stuck reading
+as working with nothing to do — the exact one that could not be archived, with no delete
+to fall back on.
+
+## 2026-09-03 — Permission management is dropped; every race runs auto-approving
+
+**Who:** Rodrigo
+**Decision:** LiveAgentsView stops mediating tool permissions. Claude Code characters
+launch with `--permission-mode bypassPermissions`, matching what Cursor characters already
+do with `--force`. The approve/deny control, the permission transcript events and the
+`internal/pilotmcp` helper that existed to be Claude Code's `--permission-prompt-tool` are
+removed. Whether a permission layer is built later is deliberately left open.
+**Rationale:** Rodrigo's call — "hagamos para esta versión lo mismo con Claude de mandarlo
+en modo automatico (...) y nos sacamos la gestión de permisos por ahora de encima. Luego
+en el futuro podríamos ver si necesitamos implementarlo o no." Permissions were the one
+capability that could not be normalized across races: Cursor's CLI has no channel to ask
+an external supervisor (2026-09-02 decision), so the choice was between an interface that
+behaves differently depending on the race behind a character, and one that behaves the
+same everywhere. Both `--permission-mode bypassPermissions` and `--force` were confirmed
+present on this machine's installed CLIs. Consequences accepted and named rather than
+discovered later: `blocked` loses its only real signal and leaves the state model;
+[IDEA-01](05-ideas-to-discuss.md)'s P0 level has no content, so the attention queue rests
+on the end-of-turn classifier and on failures; and a character can now run any command
+without asking, which is why own territory is the default. This also removes, rather than
+fixes, the loss of a pending permission request across a daemon restart. A durable
+permission policy owned by LiveAgentsView was proposed during the same session and
+explicitly deferred — [IDEA-11](05-ideas-to-discuss.md).
+
+## 2026-09-03 — A quest is not a modelled object
+
+**Who:** Rodrigo
+**Decision:** A quest is what the user asks for in the chat, not a persisted object with
+its own state and result. The character is the durable thing; the transcript is flat.
+**Rationale:** modelling quests would mean a start, an end, a status and a result per
+task, which is task management — explicitly out of scope in [02-scope.md](02-scope.md).
+The unread mark already answers the only question a quest object would have answered
+("did something finish that I have not seen?"), at no cost.

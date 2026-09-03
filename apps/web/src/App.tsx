@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react'
-import type { PilotProvider, Session } from './types'
-import { fetchSessions, subscribeToSessions, launchPilotedSession } from './api'
-import { NEEDS_ATTENTION } from './sprites'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import type { Session } from './types'
+import { fetchSessions, subscribeToSessions, unarchiveSession } from './api'
+import { NEEDS_ATTENTION, PROVIDER_LABEL, STATE_LABEL } from './sprites'
 import PartyStand from './PartyStand'
 import QuestToken from './QuestToken'
 import SessionDrawer from './SessionDrawer'
+import RecruitPanel from './RecruitPanel'
 
 export default function App() {
   const [sessions, setSessions] = useState<Record<string, Session>>({})
@@ -12,6 +13,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNewForm, setShowNewForm] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     fetchSessions()
@@ -28,18 +30,20 @@ export default function App() {
     })
   }, [])
 
-  const { questSessions, urgentCamp, calmCamp } = useMemo(() => {
+  const { questSessions, urgentCamp, calmCamp, archivedSessions } = useMemo(() => {
     const all = Object.values(sessions).sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
-    const quest = all.filter((s) => s.state === 'working')
-    const camp = all.filter((s) => s.state !== 'working')
+    const visible = all.filter((s) => !s.archived)
+    const quest = visible.filter((s) => s.state === 'working')
+    const camp = visible.filter((s) => s.state !== 'working')
     return {
       questSessions: quest,
       urgentCamp: camp.filter((s) => NEEDS_ATTENTION.includes(s.state)),
       calmCamp: camp.filter((s) => !NEEDS_ATTENTION.includes(s.state)),
+      archivedSessions: all.filter((s) => s.archived),
     }
   }, [sessions])
 
-  const total = Object.keys(sessions).length
+  const total = questSessions.length + urgentCamp.length + calmCamp.length
   const selectedSession = selectedId ? (sessions[selectedId] ?? null) : null
 
   const selectSession = useCallback((id: string) => {
@@ -55,9 +59,14 @@ export default function App() {
             {total} session{total === 1 ? '' : 's'} known
           </span>
         </div>
-        <button type="button" className="pixel-btn recruit-btn" onClick={() => setShowNewForm(true)}>
-          + Recruit session
-        </button>
+        <div className="topbar-actions">
+          <button type="button" className="pixel-btn archived-btn" onClick={() => setShowArchived(true)}>
+            Archived ({archivedSessions.length})
+          </button>
+          <button type="button" className="pixel-btn recruit-btn" onClick={() => setShowNewForm(true)}>
+            + Recruit session
+          </button>
+        </div>
       </header>
 
       {error && <div className="banner banner-error">Could not load sessions: {error}</div>}
@@ -125,7 +134,7 @@ export default function App() {
       />
 
       {showNewForm && (
-        <NewPilotedSessionForm
+        <RecruitPanel
           onCancel={() => setShowNewForm(false)}
           onLaunched={(session) => {
             setSessions((prev) => ({ ...prev, [session.id]: session }))
@@ -134,84 +143,75 @@ export default function App() {
           }}
         />
       )}
+
+      {showArchived && (
+        <ArchivedSessionsModal
+          sessions={archivedSessions}
+          onClose={() => setShowArchived(false)}
+          onUnarchive={(session) => setSessions((prev) => ({ ...prev, [session.id]: session }))}
+        />
+      )}
     </div>
   )
 }
 
-const PILOT_PROVIDERS: { value: PilotProvider; label: string }[] = [
-  { value: 'claude-code', label: 'Claude Code' },
-  { value: 'cursor', label: 'Cursor (auto-approves every tool call — see docs before pointing it at anything real)' },
-]
-
-function NewPilotedSessionForm({
-  onLaunched,
-  onCancel,
+function ArchivedSessionsModal({
+  sessions,
+  onClose,
+  onUnarchive,
 }: {
-  onLaunched: (session: Session) => void
-  onCancel: () => void
+  sessions: Session[]
+  onClose: () => void
+  onUnarchive: (session: Session) => void
 }) {
-  const [provider, setProvider] = useState<PilotProvider>('claude-code')
-  const [cwd, setCwd] = useState('')
-  const [branch, setBranch] = useState('')
-  const [prompt, setPrompt] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const submit = useCallback(
-    (e: FormEvent) => {
-      e.preventDefault()
-      setBusy(true)
+  const unarchive = useCallback(
+    (id: string) => {
+      setBusyId(id)
       setError(null)
-      launchPilotedSession({ provider, cwd: cwd.trim(), branch: branch.trim(), prompt: prompt.trim() })
-        .then(onLaunched)
+      unarchiveSession(id)
+        .then(onUnarchive)
         .catch((err) => setError(String(err)))
-        .finally(() => setBusy(false))
+        .finally(() => setBusyId(null))
     },
-    [provider, cwd, branch, prompt, onLaunched],
+    [onUnarchive],
   )
 
   return (
-    <div className="modal-scrim" onClick={onCancel}>
-      <form className="modal new-session-form" onSubmit={submit} onClick={(e) => e.stopPropagation()}>
-        <h2 className="pixel-face">Recruit a piloted session</h2>
+    <div className="modal-scrim" onClick={onClose}>
+      <div className="modal archived-modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="pixel-face">Archived sessions</h2>
         {error && <div className="banner banner-error">{error}</div>}
-        <label>
-          Provider
-          <select value={provider} onChange={(e) => setProvider(e.target.value as PilotProvider)}>
-            {PILOT_PROVIDERS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
+        {sessions.length === 0 ? (
+          <p className="archived-empty">No archived sessions.</p>
+        ) : (
+          <ul className="archived-list">
+            {sessions.map((s) => (
+              <li key={s.id} className="archived-row">
+                <div className="archived-row-info">
+                  <span className="archived-row-title">
+                    {PROVIDER_LABEL[s.provider]} — {s.repo || s.cwd || s.id}
+                  </span>
+                  <span className="archived-row-meta">
+                    {STATE_LABEL[s.state]}
+                    {s.last_message ? ` · ${s.last_message.slice(0, 120)}` : ''}
+                  </span>
+                </div>
+                <button type="button" disabled={busyId === s.id} onClick={() => unarchive(s.id)}>
+                  Unarchive
+                </button>
+              </li>
             ))}
-          </select>
-        </label>
-        <label>
-          Directory
-          <input
-            type="text"
-            value={cwd}
-            onChange={(e) => setCwd(e.target.value)}
-            placeholder="/path/to/an/existing/repo/or/worktree"
-            required
-          />
-        </label>
-        <label>
-          Branch (optional — must already exist)
-          <input type="text" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="" />
-        </label>
-        <label>
-          Initial prompt
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} required />
-        </label>
+          </ul>
+        )}
         <div className="new-session-actions">
-          <button type="button" onClick={onCancel} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="pixel-btn" disabled={busy || !cwd.trim() || !prompt.trim()}>
-            {busy ? 'Launching…' : 'Launch'}
+          <button type="button" onClick={onClose}>
+            Close
           </button>
         </div>
-      </form>
+      </div>
     </div>
   )
 }

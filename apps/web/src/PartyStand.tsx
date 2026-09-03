@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function PartyStand({ session, calm, selected, onSelect }: Props) {
-  const small = ARCHETYPES[archetypeFor(session.id)].small
+  const small = ARCHETYPES[archetypeFor(session.id, session.model)].small
   const hp = useMemo(() => seededPercent(session.id, 'hp'), [session.id])
   const mp = useMemo(() => seededPercent(session.id, 'mp'), [session.id])
   const needsAttention = NEEDS_ATTENTION.includes(session.state)
@@ -33,7 +33,7 @@ export default function PartyStand({ session, calm, selected, onSelect }: Props)
       <div className="rune-glow" style={{ background: `radial-gradient(ellipse at center, ${STATE_COLOR[session.state]}, transparent 70%)` }} />
       <div className="sprite-wrap">
         <StatusIcon state={session.state} />
-        <Portrait sessionId={session.id} />
+        <Portrait sessionId={session.id} model={session.model} />
       </div>
       <div className="bars">
         <div className="bar-track">

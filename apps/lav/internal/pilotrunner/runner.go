@@ -37,6 +37,7 @@ func Run(args []string) error {
 	lavHome := fs.String("lav-home", "", "LiveAgentsView data directory")
 	resume := fs.Bool("resume", false, "re-attach an existing provider session instead of starting a fresh one")
 	prompt := fs.String("prompt", "", "initial message (cursor: passed as a CLI argument; claude: sent over stdin after attach)")
+	modelFlag := fs.String("model", "", "model id to pass through to the provider CLI, empty for its own default")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -49,6 +50,7 @@ func Run(args []string) error {
 		provider: *provider,
 		cwd:      *cwd,
 		lavHome:  *lavHome,
+		model:    *modelFlag,
 		pending:  make(map[string]chan bool),
 	}
 	return r.run(*resume, *prompt)
@@ -59,6 +61,7 @@ type runner struct {
 	provider string
 	cwd      string
 	lavHome  string
+	model    string
 
 	mu   sync.Mutex
 	seq  int64
@@ -185,6 +188,9 @@ func (r *runner) buildCommand(resume bool, prompt string) (*exec.Cmd, io.Reader,
 		} else {
 			args = append(args, "--session-id", r.id)
 		}
+		if r.model != "" {
+			args = append(args, "--model", r.model)
+		}
 		cmd = exec.Command("claude", args...)
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
@@ -193,6 +199,9 @@ func (r *runner) buildCommand(resume bool, prompt string) (*exec.Cmd, io.Reader,
 		r.stdin = stdin
 	case "cursor":
 		args := []string{"-p", "--output-format", "stream-json", "--force", "--trust", "--workspace", r.cwd, "--resume", r.id}
+		if r.model != "" {
+			args = append(args, "--model", r.model)
+		}
 		if prompt != "" {
 			args = append(args, prompt)
 		}

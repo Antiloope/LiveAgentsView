@@ -26,6 +26,7 @@ func (m *Manager) launchClaude(ctx context.Context, ps *pilotSession, spec Launc
 	ps.provider = model.ProviderClaudeCode
 	ps.cwd = spec.Cwd
 	ps.branch = spec.Branch
+	ps.model = spec.Model
 	m.mu.Lock()
 	m.sessions[id] = ps
 	m.mu.Unlock()

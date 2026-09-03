@@ -28,7 +28,7 @@ Each step leaves a handoff block to paste into another agent.
 | [archive-session](specs/archive-session.md) | validated | none |
 | [recruit-flow-redesign](specs/recruit-flow-redesign.md) | done | validate |
 | [character-model-redesign](specs/character-model-redesign.md) | ready | implement |
-| [local-api-hardening](specs/local-api-hardening.md) | ready | implement |
+| [local-api-hardening](specs/local-api-hardening.md) | validated | none |
 
 Statuses: `draft` · `ready` · `in-progress` · `done` · `validated` · `abandoned`.
 

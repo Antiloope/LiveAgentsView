@@ -1,5 +1,11 @@
 import type { CursorModelOption, PilotEvent, PilotProvider, Session } from './types'
 
+// The daemon rejects every state-changing request (never GET or SSE) that
+// lacks this header. Its only job is to force a CORS preflight, which the
+// daemon never answers affirmatively, so a cross-origin page can never set
+// it and reach those routes.
+const CLIENT_HEADER = 'X-LAV-Client'
+
 export async function fetchSessions(): Promise<Session[]> {
   const res = await fetch('/api/sessions')
   if (!res.ok) throw new Error(`GET /api/sessions: ${res.status}`)
@@ -25,9 +31,11 @@ export function subscribeToSessions(onUpdate: (session: Session) => void): () =>
 // daemon's plain-text error body (e.g. "a turn is already in progress for
 // this session") instead of just the status code.
 async function pilotAction(path: string, body?: unknown): Promise<Response> {
+  const headers: Record<string, string> = { [CLIENT_HEADER]: '1' }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
   const res = await fetch(path, {
     method: 'POST',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!res.ok) {
@@ -51,7 +59,7 @@ export async function launchPilotedSession(spec: {
 // pickDirectory opens the daemon's native macOS folder picker and returns
 // the chosen absolute path, or null if the user cancelled the dialog.
 export async function pickDirectory(): Promise<string | null> {
-  const res = await fetch('/api/pick-directory', { method: 'POST' })
+  const res = await fetch('/api/pick-directory', { method: 'POST', headers: { [CLIENT_HEADER]: '1' } })
   if (res.status === 204) return null
   if (!res.ok) throw new Error((await res.text().catch(() => '')) || `POST /api/pick-directory: ${res.status}`)
   const data = (await res.json()) as { path: string }

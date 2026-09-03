@@ -30,14 +30,17 @@ type Server struct {
 	hub          *sse.Hub
 	pilots       *pilot.Manager
 	mux          *http.ServeMux
+	handler      http.Handler // mux wrapped with secure(); what ServeHTTP actually calls
 	cursorModels cursorModelsCache
 }
 
 // New builds the daemon. lavHome is this process's own data directory and
 // selfExe its own binary path — both passed through to pilot.Manager, which
 // needs them to spawn and reconnect to piloted sessions' detached
-// pilot-runner processes.
-func New(st *store.Store, cls classifier.Classifier, webFS fs.FS, lavHome, selfExe string) *Server {
+// pilot-runner processes. port is the one this daemon is actually listening
+// on (LAV_PORT can change it from the default), used to compute the
+// loopback Host/Origin values secure() accepts.
+func New(st *store.Store, cls classifier.Classifier, webFS fs.FS, lavHome, selfExe, port string) *Server {
 	s := &Server{
 		store: st,
 		hub:   sse.NewHub(),
@@ -48,10 +51,11 @@ func New(st *store.Store, cls classifier.Classifier, webFS fs.FS, lavHome, selfE
 		log.Printf("reconcile piloted sessions on startup: %v", err)
 	}
 	s.routes(webFS)
+	s.handler = secure(newSecureConfig(port), s.mux)
 	return s
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.handler.ServeHTTP(w, r) }
 
 func (s *Server) routes(webFS fs.FS) {
 	s.mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

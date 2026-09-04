@@ -33,6 +33,10 @@ completion, and rules-based end-of-turn classification. The rest of the table �
 particular the P3 definition and the exact notification behaviour per level — still needs
 sign-off.
 
+> **Stale row:** P0 · Blocked as "Permission request" no longer matches product — tool
+> permissions are not mediated (2026-09-03). Either redefine P0 or drop it until
+> [IDEA-11](05-ideas-to-discuss.md) lands.
+
 **Status:** unagreed
 
 ## IDEA-02 — Attention depends on human presence, not just agent state
@@ -175,5 +179,26 @@ change is a sleep and a wake with a different `--model` for Claude Code, and tak
 on the next turn for Cursor. What is not defined is the product side: whether the change
 applies from the next quest or mid-quest, what the transcript shows, and whether class
 history is worth keeping.
+
+**Status:** unagreed
+
+## IDEA-13 — Componentize Craft Pixel chrome and layered camp kits
+
+**Proposal:** Split the web UI and camp art into small, improvable pieces instead of
+one-off markup in `App.css` / monolithic kit drawers.
+
+**Chrome (Operate HUD):** reusable components for buttons, display/HUD/body type roles,
+chat bubbles, icons/glyphs, portraits/thumbnails, layout shells (topbar, Quest Ledger,
+scene frame, drawer). Goal: work one component at a time with clear tokens from
+DESIGN.md.
+
+**Camp (game layer):** compose characters from generic parts — base body by race, class
+silhouette, armor/items overlays — so variety comes from stacking parts rather than one
+bitmap per race×class. Background, fire, tents, and animations become named scene
+modules. Keeps the procedural bake path (`camp/defs` → textures); does not introduce
+hand PNGs or generative image sheets as the shipping art unless separately decided.
+
+**Why:** the Craft Pixel world is locked, but craft quality needs isolation to iterate
+(buttons, faces, items) without rewriting the whole shell each time.
 
 **Status:** unagreed

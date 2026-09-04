@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Character, PilotEvent } from './types'
 import { RACE_LABEL, ACTIVITY_COLOR, ACTIVITY_LABEL } from './sprites'
-import Portrait from './Portrait'
+import { Button, ChatBubble, HudLabel, PortraitThumb, SessionChrome } from './ui'
 import {
   archiveCharacter,
   dismissCharacter,
@@ -74,33 +74,23 @@ export default function SessionDrawer({ character, onClose, onCharacterUpdate, o
   }, [open, character?.id])
 
   return (
-    <>
-      {/* Decorative dim only — pointer-events:none so clicking another party
-          member or quest token (still visible beside the drawer by design)
-          switches the drawer's character directly instead of needing a close
-          click first. Escape and the ✕ button remain the ways to close. */}
-      <div className={`scrim${open ? ' open' : ''}`} />
-      <div
-        ref={drawerRef}
-        className={`drawer${open ? ' open' : ''}`}
-        style={{ width: DEFAULT_WIDTH }}
-        role="dialog"
-        aria-label={character ? `${RACE_LABEL[character.race]} character` : undefined}
-        aria-hidden={!open}
-      >
-        <div className={`drawer-handle${dragging ? ' dragging' : ''}`} onMouseDown={startDrag} title="Drag to resize" />
-        <div className="drawer-body">
-          {character && (
-            <DrawerContent
-              character={character}
-              onClose={onClose}
-              onCharacterUpdate={onCharacterUpdate}
-              onDismissed={onDismissed}
-            />
-          )}
-        </div>
-      </div>
-    </>
+    <SessionChrome
+      open={open}
+      drawerRef={drawerRef}
+      width={DEFAULT_WIDTH}
+      dragging={dragging}
+      onHandleMouseDown={startDrag}
+      label={character ? `${RACE_LABEL[character.race]} character` : undefined}
+    >
+      {character && (
+        <DrawerContent
+          character={character}
+          onClose={onClose}
+          onCharacterUpdate={onCharacterUpdate}
+          onDismissed={onDismissed}
+        />
+      )}
+    </SessionChrome>
   )
 }
 
@@ -119,20 +109,21 @@ function DrawerContent({
     <>
       <div className="drawer-header">
         <div className="drawer-sprite">
-          <Portrait characterId={character.id} race={character.race} />
+          <PortraitThumb characterId={character.id} race={character.race} />
         </div>
         <div className="drawer-header-text">
-          <div className="name pixel-face">
+          <HudLabel as="div" className="name">
             {RACE_LABEL[character.race]} — {character.repo || character.territory.path || character.id}
-          </div>
+          </HudLabel>
           <div className="repo">{character.territory.branch || character.territory.path}</div>
           {character.class && <span className="class-badge mono">{character.class}</span>}
-          <div
-            className="state-pill pixel-face"
+          <HudLabel
+            as="div"
+            className="state-pill"
             style={{ background: ACTIVITY_COLOR[character.activity], color: character.activity === 'waiting' ? '#2a1a0c' : '#fff8e8' }}
           >
             {ACTIVITY_LABEL[character.activity]} · {character.presence}
-          </div>
+          </HudLabel>
         </div>
         <button type="button" className="drawer-close" aria-label="Close" onClick={onClose}>
           ✕
@@ -270,22 +261,22 @@ function PilotChat({
       <div className="drawer-pilot-actions">
         {canStop && (
           <>
-            <button type="button" disabled={busy} onClick={() => runAction(() => interruptCharacter(character.id))}>
+            <Button type="button" disabled={busy} onClick={() => runAction(() => interruptCharacter(character.id))}>
               Interrupt
-            </button>
-            <button type="button" className="danger" disabled={busy} onClick={() => runAction(() => stopCharacter(character.id))}>
+            </Button>
+            <Button type="button" variant="danger" disabled={busy} onClick={() => runAction(() => stopCharacter(character.id))}>
               Stop
-            </button>
+            </Button>
           </>
         )}
         {canArchive && (
-          <button type="button" disabled={busy} onClick={archive}>
+          <Button type="button" disabled={busy} onClick={archive}>
             Archive
-          </button>
+          </Button>
         )}
-        <button type="button" className="danger" disabled={busy} onClick={dismiss}>
+        <Button type="button" variant="danger" disabled={busy} onClick={dismiss}>
           Dismiss
-        </button>
+        </Button>
       </div>
 
       {error && <div className="banner banner-error">{error}</div>}
@@ -318,9 +309,9 @@ function PilotChat({
             }
           }}
         />
-        <button type="submit" className="pixel-btn" disabled={busy || !draft.trim()}>
+        <Button type="submit" disabled={busy || !draft.trim()}>
           Send
-        </button>
+        </Button>
       </form>
     </>
   )
@@ -352,41 +343,39 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
   switch (event.kind) {
     case 'user':
       return (
-        <div className="bubble user">
-          <span className="bubble-label">You</span>
+        <ChatBubble variant="user" label="You">
           <p>{event.text}</p>
-        </div>
+        </ChatBubble>
       )
     case 'assistant':
       return (
-        <div className="bubble assistant">
+        <ChatBubble variant="assistant">
           <p>{event.text}</p>
-        </div>
+        </ChatBubble>
       )
     case 'tool_call': {
       const summary = summarizeCursorToolInput(event.tool_input)
       return (
-        <div className="bubble tool">
-          <span className="bubble-label">→ {event.tool_name || 'tool'}</span>
+        <ChatBubble variant="tool" label={`→ ${event.tool_name || 'tool'}`}>
           {summary !== null ? (
             <p>{summary}</p>
           ) : (
             event.tool_input !== undefined && <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 2000)}</pre>
           )}
-        </div>
+        </ChatBubble>
       )
     }
     case 'error':
       return (
-        <div className="bubble error">
+        <ChatBubble variant="error">
           <p>{event.text}</p>
-        </div>
+        </ChatBubble>
       )
     default:
       return (
-        <div className="bubble system">
+        <ChatBubble variant="system">
           <p>{event.text}</p>
-        </div>
+        </ChatBubble>
       )
   }
 }

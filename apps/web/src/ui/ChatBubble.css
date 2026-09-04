@@ -1,0 +1,49 @@
+.ui-bubble {
+  padding: 0.6rem 0.75rem;
+  border: 2px solid #8a6a40;
+  background: #fff8e8;
+  max-width: 92%;
+}
+.ui-bubble p {
+  margin: 0;
+}
+.ui-bubble__label {
+  display: block;
+  font-family: 'Pixelify Sans', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 0.2rem;
+}
+.ui-bubble--user {
+  align-self: flex-end;
+  background: #e9dcbd;
+  border-color: var(--gold);
+}
+.ui-bubble--assistant {
+  align-self: flex-start;
+}
+.ui-bubble--tool {
+  align-self: flex-start;
+  font-family: ui-monospace, 'SF Mono', monospace;
+  font-size: 0.78rem;
+  background: #e4dcc2;
+  color: var(--ink-soft);
+}
+.ui-bubble--tool pre {
+  margin: 0.3rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ui-bubble--error {
+  border-color: var(--danger);
+  background: #fbe1dd;
+  color: #7a1f16;
+}
+.ui-bubble--system {
+  align-self: center;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  background: transparent;
+  border-style: dashed;
+}

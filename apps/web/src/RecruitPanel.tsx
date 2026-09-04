@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ClaudeClassId, Character, CursorClassOption, Race, TerritoryMode } from './types'
 import { createCharacter, fetchBranches, fetchCursorClasses, pickDirectory } from './api'
-import { RaceRune, MapRune, ShieldRune, HoodRune, SatchelRune, SignpostRune, SparkRune, SearchRune } from './Glyphs'
+import { HudLabel, RaceGlyph } from './ui'
+import {
+  ShieldRune,
+  HoodRune,
+  SatchelRune,
+  MapRune,
+  SignpostRune,
+  SparkRune,
+  SearchRune,
+} from './Glyphs'
 
 interface ClaudeClass {
   id: ClaudeClassId
@@ -150,7 +159,7 @@ export default function RecruitPanel({ onCancel, onRecruited }: Props) {
     <div className="scrim recruit-scrim open" onClick={onCancel}>
       <aside className="recruit-panel" onClick={(e) => e.stopPropagation()}>
         <div className="recruit-head">
-          <span className="pixel-face">New arrival</span>
+          <HudLabel>New arrival</HudLabel>
           <button type="button" className="drawer-close" aria-label="Cancel" onClick={onCancel}>
             ✕
           </button>
@@ -162,10 +171,10 @@ export default function RecruitPanel({ onCancel, onRecruited }: Props) {
             <span className="field-label">Race</span>
             <div className="provider-row">
               <button type="button" className={`provider-pick${race === 'claude-code' ? ' on' : ''}`} onClick={() => setRace('claude-code')}>
-                <RaceRune race="claude-code" /> Claude Code
+                <RaceGlyph race="claude-code" /> Claude Code
               </button>
               <button type="button" className={`provider-pick${race === 'cursor' ? ' on' : ''}`} onClick={() => setRace('cursor')}>
-                <RaceRune race="cursor" /> Cursor
+                <RaceGlyph race="cursor" /> Cursor
               </button>
             </div>
           </div>

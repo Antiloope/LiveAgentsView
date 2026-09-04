@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import type { Race } from './types'
-import { ARCHETYPES, archetypeFor } from './sprites'
+import { archetypeFor } from './sprites'
+import { bakeKitBuffer } from './camp/defs/assembleKit'
+import { bufferToCanvas } from './camp/bake/sheet'
 
 interface Props {
   characterId: string
@@ -8,17 +10,23 @@ interface Props {
   className?: string
 }
 
-// Renders the party sprite assigned to this character — see sprites.ts for
-// how the archetype is picked: a pool per race, hashed by character id so
-// individuals of the same race stay visually distinguishable.
+/** Party portrait from the procedural kit baker (shared with the Pixi camp). */
 export default function Portrait({ characterId, race, className }: Props) {
-  const archetype = useMemo(() => ARCHETYPES[archetypeFor(characterId, race)], [characterId, race])
+  const src = useMemo(() => {
+    const kitId = archetypeFor(characterId, race)
+    const { buf, palette } = bakeKitBuffer(kitId, 'idle', 0)
+    return bufferToCanvas(buf, palette, 2).toDataURL()
+  }, [characterId, race])
 
   return (
-    <svg viewBox="0 0 96 128" className={className ? `party-sprite ${className}` : 'party-sprite'} shapeRendering="crispEdges">
-      {archetype.rects.map((rect, i) => (
-        <rect key={i} x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill={rect.fill} />
-      ))}
-    </svg>
+    <img
+      src={src}
+      alt=""
+      width={96}
+      height={128}
+      className={className ? `party-sprite ${className}` : 'party-sprite'}
+      draggable={false}
+      style={{ imageRendering: 'pixelated' }}
+    />
   )
 }

@@ -1,0 +1,80 @@
+/*
+  Craft Pixel design tokens — navy/gold HUD, parchment, type faces.
+  Consumed by App.css and ui/* components.
+*/
+
+:root {
+  color-scheme: dark;
+
+  --sky-top: #070b14;
+  --sky-mid: #0c1428;
+  --ground: #1a2618;
+  --ground-dark: #0e1610;
+  --frame: #152038;
+  --frame-mid: #243556;
+  --parchment: #f0e2c0;
+  --parchment-dark: #dfcba0;
+  --ink: #1a140c;
+  --ink-soft: #4a3a28;
+  --ink-invert: #f0e8d0;
+  --gold: #c5a059;
+  --gold-bright: #e8c878;
+  --gold-deep: #8a6828;
+  --focus: #e8c878;
+  --danger: #e5473b;
+  --bevel-hi: #e8c878;
+  --bevel-lo: #1a2744;
+  --waiting: #e8a838;
+  --failed: #a41f2f;
+  --working: #3ec27a;
+  --ready: #5b9bd8;
+  --approve-fill: #c9432f;
+  --noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.85'/%3E%3C/svg%3E");
+
+  /* Aliases for any leftover wood-* references */
+  --wood: var(--frame-mid);
+  --wood-dark: var(--frame);
+  --wood-light: var(--gold);
+
+  --radius-sm: 0px;
+}
+
+/* Ornate gold corner flourishes (SVG children) */
+.corner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  pointer-events: none;
+  z-index: 5;
+  color: var(--gold-bright);
+  filter: drop-shadow(1px 1px 0 #5a4010);
+}
+.corner svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.corner.tl {
+  top: -4px;
+  left: -4px;
+}
+.corner.tr {
+  top: -4px;
+  right: -4px;
+  transform: scaleX(-1);
+}
+.corner.bl {
+  bottom: -4px;
+  left: -4px;
+  transform: scaleY(-1);
+}
+.corner.br {
+  bottom: -4px;
+  right: -4px;
+  transform: scale(-1);
+}
+.corner.lg {
+  width: 44px;
+  height: 44px;
+}

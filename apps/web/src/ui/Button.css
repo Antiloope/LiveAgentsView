@@ -1,0 +1,85 @@
+.ui-btn {
+  position: relative;
+  border-radius: var(--radius-sm);
+  font-family: 'Pixelify Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  background:
+    var(--noise),
+    linear-gradient(180deg, #fff0b8 0%, #f0d078 35%, var(--gold) 70%, #a87828 100%);
+  background-blend-mode: soft-light, normal;
+  border: 2px solid var(--gold-deep);
+  box-shadow:
+    inset 1px 1px 0 #fff8d8,
+    inset -2px -2px 0 #a87828,
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+    2px 3px 0 #06080f;
+  padding: 0.42rem 0.95rem;
+}
+.ui-btn::before,
+.ui-btn::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--gold-deep);
+  background: var(--gold-bright);
+  box-shadow: inset 0 0 0 1px #fff2c0;
+}
+.ui-btn::before {
+  top: 3px;
+  left: 3px;
+}
+.ui-btn::after {
+  bottom: 3px;
+  right: 3px;
+}
+.ui-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.ui-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ui-btn--secondary {
+  color: var(--parchment);
+  background:
+    var(--noise),
+    linear-gradient(180deg, #4a5c80 0%, #2e3e5c 45%, #1a2740 100%);
+  background-blend-mode: soft-light, normal;
+  border-color: var(--gold);
+  box-shadow:
+    inset 1px 1px 0 #6a7a9a,
+    inset -2px -2px 0 #101828,
+    2px 3px 0 #06080f;
+}
+.ui-btn--secondary::before,
+.ui-btn--secondary::after {
+  background: #3a4a68;
+  border-color: var(--gold);
+  box-shadow: none;
+}
+.ui-btn--secondary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  color: var(--gold-bright);
+}
+
+.ui-btn--danger {
+  color: var(--danger);
+  background:
+    var(--noise),
+    linear-gradient(180deg, #fff0e8 0%, #f0d0c0 40%, #e8b8a8 100%);
+  background-blend-mode: soft-light, normal;
+  border-color: var(--danger);
+  box-shadow:
+    inset 1px 1px 0 #fff8f0,
+    inset -2px -2px 0 #c08070,
+    2px 3px 0 #06080f;
+}
+.ui-btn--danger::before,
+.ui-btn--danger::after {
+  background: #f0c0b0;
+  border-color: var(--danger);
+}

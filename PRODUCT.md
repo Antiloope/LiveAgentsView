@@ -30,68 +30,63 @@ mental effort of supervising many agents at once.
 Attention over activity: the product optimizes for "do I need to do anything?", not "what
 is happening?" It is provider-agnostic (providers are adapters behind a canonical event
 model, not a dependency on any one vendor), local-first (no required cloud account, no
-provider API keys where native CLIs/hooks suffice), and explicitly does not replace Claude
-Code, Codex or Cursor — "open in the terminal" is a first-class feature, not a fallback.
+provider API keys where vendor CLIs suffice), and explicitly does not replace Claude Code,
+Codex or Cursor — it launches and drives those CLIs as child processes.
 
 ## Operating Context
 
-- Two session classes coexist in one interface: **Adopted** (launched natively by the
-  user, reports in via hooks, read-only — state, attention queue, notifications, jump to
-  terminal) and **Piloted** (launched from LiveAgentsView as a child process over
-  `stream-json`, controllable — answer questions, approve/deny permissions, cancel).
-- Three integration fidelity levels, shown per session: **Driver** (bidirectional
-  `stream-json`, full control), **Hooks** (`~/.claude/settings.json`,
-  `~/.codex/config.toml` `notify`, read-only push), **Tailing** (vendor JSONL
-  transcripts, retroactive, no control, cannot tell "waiting" from "done").
-- Canonical session states: WORKING / WAITING / BLOCKED / DONE / FAILED / IDLE. A
-  finished agent is low-priority attention (grouped, no loud notification), not a bare
-  state change and not a full alert.
-- Providers in MVP: Claude Code, Codex, Cursor — built together, not staggered. Cursor's
-  IDE agent has no local hook surface for adopted sessions beyond the confirmed
-  `.cursor/hooks.json` events; its piloted mode has no bidirectional driver protocol, so
-  Cursor piloted sessions auto-approve every tool call instead of getting a live
-  approve/deny gate.
-- Runs as a single Go binary with an embedded SQLite store and an embedded React + Vite
-  frontend, executed directly on the host (not containerized at runtime) so it can reach
-  the host keychain, repos, git config and worktrees needed to spawn `claude`, `codex`
-  and `cursor-agent`. Binds to `127.0.0.1` by default.
+- **Piloted only.** Every character LiveAgentsView shows is one it launched itself as a
+  child process over the vendor CLI (bidirectional `stream-json` where the race supports
+  it). There is no **Adopted** class — sessions started outside LiveAgentsView are not
+  tracked. Hooks ingestion and read-only "watch someone else's terminal" are gone
+  (decided 2026-09-02). Do not design, critique, or implement Adopted / Hooks / Tailing
+  as if they were current product.
+- **No tool-permission approve/deny UI.** Every race runs auto-approving
+  (`bypassPermissions` / `--force`). LiveAgentsView does not mediate model tool
+  permissions and must not treat a missing Approve/Deny control as a product gap
+  (decided 2026-09-03). A future permission *layer* is only IDEA-11, unagreed.
+- **Vocabulary:** character · race · class · territory · quest · camp (see docs/02-scope).
+  Activity axis (working / waiting / failed / ready / …) and presence (awake / asleep).
+- **Waiting** means the character is waiting on the *user* (a question / end-of-turn),
+  not a tool-permission prompt. Attention for waiting is answer-in-chat / interrupt /
+  stop — not approve permission.
+- Providers in MVP: Claude Code and Cursor are usable as piloted races; Codex waits on a
+  driver adapter (see docs/03-decisions.md 2026-09-02).
+- Runs as a single Go binary with embedded SQLite and an embedded React + Vite frontend,
+  on the host (not containerized at runtime). Binds to `127.0.0.1` by default.
 
 ## Capabilities and Constraints
 
-**In scope:** detecting local coding-agent sessions and aggregating them into one
-dashboard; showing repository, worktree, branch, provider and normalized state per
-session; an attention queue prioritized by what needs the human; notifications on events
-that earn an interruption; jumping to the originating session or acting on it directly;
-a recently-finished list; persisting enough state/history to survive restarts.
+**In scope:** launching and aggregating characters into one dashboard; showing repository,
+territory, branch, race, class and normalized activity; an attention surface for what
+needs the human; notifications on events that earn an interruption; acting on a character
+from the dashboard (chat, interrupt, stop, archive/dismiss); persisting enough state to
+survive restarts.
 
 **Out of scope:** agent orchestration or automatic task assignment, task management or
 workflows, agent memory or MCP management, team collaboration or enterprise governance,
-sophisticated analytics, replacing the underlying IDE or CLI.
+sophisticated analytics, replacing the underlying IDE or CLI, mediating tool permissions,
+adopting externally launched sessions.
 
 **Explicit boundaries:** LLM credentials are never managed — vendor CLIs run as
-subprocesses inheriting the user's existing login; LiveAgentsView never sees, stores or
-asks for API keys. Filesystem permissions are delegated to the underlying agent (Claude
-Code's permission modes/allow-deny rules, Codex's sandbox/approval policy); LiveAgentsView
-surfaces the prompt and routes the answer, it does not sandbox on its own. A local server
-that can approve permissions is remote code execution, so it binds to `127.0.0.1` by
+subprocesses inheriting the user's existing login. A local server that can launch an
+auto-approving coding agent is remote code execution, so it binds to `127.0.0.1` by
 default; exposing it to other devices is a separate, explicit opt-in.
 
-**Known provider gaps (accepted, not blockers):** BLOCKED has a strong dedicated signal
-only for Claude Code; Codex has none at Hooks fidelity, Cursor only a heuristic proxy.
-WAITING vs. DONE is ambiguous from the raw event for every provider and is resolved by a
-rules-based classifier over the last message (chosen over an LLM classifier to preserve
-the no-API-keys property), behind a pluggable classifier interface. IDLE is always
-derived locally from a timeout, never pushed by a provider.
+**Known gaps (accepted):** WAITING vs finished end-of-turn disambiguation is rules-based
+classification (no LLM classifier, to preserve no-API-keys). IDLE is derived locally from
+a timeout. Codex has no piloted adapter yet.
 
 ## Brand Commitments
 
-Product name is "LiveAgentsView." No visual identity (logo, wordmark, color mark) exists
-yet, and none of that is decided — open for later design work.
+Product name is "LiveAgentsView." Visual identity is the Craft Pixel world documented in
+DESIGN.md (navy/gold HUD, parchment Quest Ledger, night camp). No separate logo mark is
+decided beyond that.
 
 ## Evidence on Hand
 
-No real captured session data, screenshots, or transcripts exist yet as design reference.
-Future design work must treat any example agent session, status data, or activity as
+No real captured session data, screenshots, or transcripts exist yet as design reference
+beyond review/demo parties. Future design work must treat example agent session data as
 placeholder — not fabricate it as if it were real usage.
 
 ## Product Principles
@@ -101,9 +96,9 @@ placeholder — not fabricate it as if it were real usage.
    Cursor-only; providers are interchangeable adapters behind one model.
 3. Local-first and single-user — this is a personal control surface bound to
    `127.0.0.1`, not a multi-tenant or team product, even though it may grow into one.
-4. Complement, don't replace — the terminal/IDE stays the source of truth; LiveAgentsView
-   is the layer above it, never a competing editor or chat surface.
-5. Glanceable at 10–20 agents — the state of many concurrent sessions must read in
+4. Complement, don't replace — vendor CLIs stay the engine; LiveAgentsView is the layer
+   that launches and supervises them.
+5. Glanceable at 10–20 agents — the state of many concurrent characters must read in
    seconds, not require per-session inspection.
 
 ## Accessibility & Inclusion
@@ -112,8 +107,9 @@ No product-specific accessibility requirement has been established yet.
 
 ## Open Decisions
 
-- Whether/how "a human is watching this session" is detected (candidate signals: terminal
-  focus, a recent `UserPromptSubmit`, active tmux pane) — deferred, not needed until the
-  attention engine is built.
+- Whether/how "a human is watching this session" is detected — deferred.
 - Full attention-priority taxonomy beyond completion-is-low-priority — proposed, not yet
-  agreed (see `docs/05-ideas-to-discuss.md`, IDEA-01).
+  agreed (see `docs/05-ideas-to-discuss.md`, IDEA-01). Note: IDEA-01's old P0 "permission
+  request" row is stale relative to the 2026-09-03 permission drop.
+- Componentized Craft Pixel chrome + layered camp kits (race / class / items) — proposed
+  as craft direction (IDEA-13), not yet agreed as a build plan.

@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import type { Character } from './types'
 import { fetchCharacters, subscribeToCharacters, unarchiveCharacter } from './api'
 import { NEEDS_ATTENTION, RACE_LABEL, ACTIVITY_LABEL } from './sprites'
-import PartyStand from './PartyStand'
 import QuestToken from './QuestToken'
 import SessionDrawer from './SessionDrawer'
 import RecruitPanel from './RecruitPanel'
+import { CampCanvas } from './camp'
+import { reviewModeEnabled, reviewPartyForQuery } from './camp/scene/reviewParty'
+import { TopBar, QuestLedger, SceneFrame, Button, HudLabel } from './ui'
 
 export default function App() {
   const [characters, setCharacters] = useState<Record<string, Character>>({})
@@ -16,6 +18,14 @@ export default function App() {
   const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
+    if (reviewModeEnabled()) {
+      const byId: Record<string, Character> = {}
+      for (const c of reviewPartyForQuery()) byId[c.id] = c
+      setCharacters(byId)
+      setLoading(false)
+      return
+    }
+
     fetchCharacters()
       .then((list) => {
         const byId: Record<string, Character> = {}
@@ -64,22 +74,12 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <div>
-          <h1 className="pixel-face">LiveAgentsView</h1>
-          <span className="subtitle">
-            {total} character{total === 1 ? '' : 's'} known
-          </span>
-        </div>
-        <div className="topbar-actions">
-          <button type="button" className="pixel-btn archived-btn" onClick={() => setShowArchived(true)}>
-            Archived ({archivedCharacters.length})
-          </button>
-          <button type="button" className="pixel-btn recruit-btn" onClick={() => setShowRecruit(true)}>
-            + Recruit
-          </button>
-        </div>
-      </header>
+      <TopBar
+        characterCount={total}
+        archivedCount={archivedCharacters.length}
+        onRecruit={() => setShowRecruit(true)}
+        onShowArchived={() => setShowArchived(true)}
+      />
 
       {error && <div className="banner banner-error">Could not load characters: {error}</div>}
 
@@ -88,52 +88,32 @@ export default function App() {
       )}
 
       <div className="layout-row">
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <span className="pixel-face">OUT ON QUESTS</span>
-            <span className="count">{questCharacters.length}</span>
-          </div>
-          <div className="sidebar-list">
-            {loading ? (
-              <div className="sidebar-empty">Loading…</div>
-            ) : questCharacters.length === 0 ? (
-              <div className="sidebar-empty">No one is out right now.</div>
-            ) : (
-              questCharacters.map((c) => (
-                <QuestToken key={c.id} character={c} selected={c.id === selectedId} onSelect={selectCharacter} />
-              ))
-            )}
-          </div>
-        </aside>
+        <QuestLedger count={questCharacters.length}>
+          {loading ? (
+            <div className="sidebar-empty">Loading…</div>
+          ) : questCharacters.length === 0 ? (
+            <div className="sidebar-empty">No one is out right now.</div>
+          ) : (
+            questCharacters.map((c) => (
+              <QuestToken key={c.id} character={c} selected={c.id === selectedId} onSelect={selectCharacter} />
+            ))
+          )}
+        </QuestLedger>
 
-        <div className="scene">
-          <div className="stars" />
-          <div className="treeline" />
-          <div className="ground-tex" />
-          <div className="tent" />
-          <div className="tent right" />
-          <div className="banner-pole" />
-          <div className="firelight" />
-          <div className="campfire">
-            <div className="log" />
-            <div className="flame" />
-          </div>
-          <div className="camp-floor">
-            <div className="camp-row back">
-              {calmCamp.map((c) => (
-                <PartyStand key={c.id} character={c} calm selected={c.id === selectedId} onSelect={selectCharacter} />
-              ))}
-            </div>
-            <div className="camp-row front">
-              {urgentCamp.map((c) => (
-                <PartyStand key={c.id} character={c} selected={c.id === selectedId} onSelect={selectCharacter} />
-              ))}
-            </div>
-          </div>
+        <SceneFrame>
+          <CampCanvas
+            className="camp-pixi"
+            figures={[
+              ...calmCamp.map((c) => ({ character: c, calm: true as const })),
+              ...urgentCamp.map((c) => ({ character: c, calm: false as const })),
+            ]}
+            selectedId={selectedId}
+            onSelect={selectCharacter}
+          />
           {!loading && urgentCamp.length === 0 && calmCamp.length === 0 && (
             <div className="empty-camp">Camp is quiet — everyone's out on a quest.</div>
           )}
-        </div>
+        </SceneFrame>
       </div>
 
       <SessionDrawer
@@ -192,7 +172,7 @@ function ArchivedCharactersModal({
   return (
     <div className="modal-scrim" onClick={onClose}>
       <div className="modal archived-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 className="pixel-face">Archived characters</h2>
+        <HudLabel as="h2">Archived characters</HudLabel>
         {error && <div className="banner banner-error">{error}</div>}
         {characters.length === 0 ? (
           <p className="archived-empty">No archived characters.</p>
@@ -209,17 +189,17 @@ function ArchivedCharactersModal({
                     {c.last_message ? ` · ${c.last_message.slice(0, 120)}` : ''}
                   </span>
                 </div>
-                <button type="button" disabled={busyId === c.id} onClick={() => unarchive(c.id)}>
+                <Button type="button" disabled={busyId === c.id} onClick={() => unarchive(c.id)}>
                   Unarchive
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
         )}
         <div className="new-session-actions">
-          <button type="button" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
       </div>
     </div>

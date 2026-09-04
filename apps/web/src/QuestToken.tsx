@@ -1,8 +1,6 @@
-import { useMemo } from 'react'
 import type { Character } from './types'
-import { RACE_LABEL, seededPercent } from './sprites'
-import Portrait from './Portrait'
-import { RaceRune } from './Glyphs'
+import { RACE_LABEL } from './sprites'
+import { PortraitThumb, RaceGlyph } from './ui'
 
 interface Props {
   character: Character
@@ -11,9 +9,6 @@ interface Props {
 }
 
 export default function QuestToken({ character, selected, onSelect }: Props) {
-  const hp = useMemo(() => seededPercent(character.id, 'hp'), [character.id])
-  const mp = useMemo(() => seededPercent(character.id, 'mp'), [character.id])
-
   return (
     <button
       type="button"
@@ -23,23 +18,15 @@ export default function QuestToken({ character, selected, onSelect }: Props) {
       onClick={() => onSelect(character.id)}
     >
       <div className="mini-sprite">
-        <Portrait characterId={character.id} race={character.race} />
+        <PortraitThumb characterId={character.id} race={character.race} />
       </div>
       <div className="mini-text">
         <div className="mini-provider">
-          <RaceRune race={character.race} className="race-rune" />
+          <RaceGlyph race={character.race} className="race-rune" />
           <span>{RACE_LABEL[character.race]}</span>
         </div>
         <div className="mini-repo" title={character.territory.path}>
           {character.repo || character.territory.path}
-        </div>
-        <div className="mini-bars">
-          <div className="bar-track">
-            <div className="bar-fill" style={{ width: `${hp}%` }} />
-          </div>
-          <div className="bar-track mp">
-            <div className="bar-fill mp" style={{ width: `${mp}%` }} />
-          </div>
         </div>
       </div>
     </button>

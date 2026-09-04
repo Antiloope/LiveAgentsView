@@ -1,153 +1,123 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-02T00:00:00Z",
+  "generatedAt": "2026-09-04T12:47:13.060Z",
   "title": "Design System: LiveAgentsView",
   "extensions": {
     "colorMeta": {
       "gold": {
         "role": "primary",
-        "displayName": "Ember Rust",
-        "canonical": "#e2703a",
+        "displayName": "Burnished Gold",
+        "canonical": "#c5a059",
         "tonalRamp": [
-          "#201008",
-          "#422010",
-          "#6e3317",
-          "#a0471d",
-          "#de5e21",
-          "#e2895f",
-          "#e9b49a",
-          "#f3dace"
+          "#1a1408",
+          "#3a2c10",
+          "#6a5018",
+          "#8a6828",
+          "#c5a059",
+          "#e8c878",
+          "#f0d078",
+          "#fff2c0"
         ]
       },
-      "wood": {
-        "role": "secondary",
-        "displayName": "Wood",
-        "canonical": "#7a4a26",
+      "gold-bright": {
+        "role": "primary",
+        "displayName": "Gold Bright",
+        "canonical": "#e8c878",
         "tonalRamp": [
-          "#1d130c",
-          "#3b2617",
-          "#613e24",
-          "#8d5830",
-          "#c2763d",
-          "#cf9a72",
-          "#debea6",
-          "#eddfd3"
+          "#1a1408",
+          "#3a2c10",
+          "#6a5018",
+          "#a88830",
+          "#e8c878",
+          "#f0d078",
+          "#f8e8a8",
+          "#fff8d8"
+        ]
+      },
+      "frame": {
+        "role": "secondary",
+        "displayName": "Navy Enamel",
+        "canonical": "#152038",
+        "tonalRamp": [
+          "#070b14",
+          "#0c1428",
+          "#152038",
+          "#243556",
+          "#3a4e72",
+          "#5a6a88",
+          "#8a98b0",
+          "#c8d0e0"
         ]
       },
       "parchment": {
         "role": "secondary",
         "displayName": "Parchment",
-        "canonical": "#f2e2c4",
+        "canonical": "#f0e2c0",
         "tonalRamp": [
-          "#1f180a",
-          "#3e2f13",
-          "#684e1d",
-          "#977026",
-          "#d1982e",
-          "#d9b268",
-          "#e4cca0",
-          "#f0e5d1"
+          "#1a140c",
+          "#4a3a28",
+          "#8a6a40",
+          "#c4a878",
+          "#dfcba0",
+          "#f0e2c0",
+          "#f7ecd4",
+          "#fff8e8"
         ]
       },
       "sky-top": {
         "role": "tertiary",
-        "displayName": "Dusk Sky",
-        "canonical": "#2b1810",
+        "displayName": "Night Sky",
+        "canonical": "#070b14",
         "tonalRamp": [
-          "#1c110d",
-          "#382219",
-          "#5d3728",
-          "#874e36",
-          "#ba6845",
-          "#c99078",
-          "#dab8a9",
-          "#ecdcd5"
+          "#04060c",
+          "#070b14",
+          "#0c1428",
+          "#152038",
+          "#243556",
+          "#3a4e72",
+          "#6a7a98",
+          "#a8b4c8"
         ]
       },
       "ground": {
         "role": "tertiary",
         "displayName": "Camp Ground",
-        "canonical": "#233b1e",
+        "canonical": "#1a2618",
         "tonalRamp": [
-          "#111a0f",
-          "#22341e",
-          "#36552f",
-          "#4c7b42",
-          "#64a956",
-          "#8ebd84",
-          "#b6d3b0",
-          "#dbe8d8"
-        ]
-      },
-      "ink-invert": {
-        "role": "neutral",
-        "displayName": "Parchment Ink (dark bg text)",
-        "canonical": "#fbe9d4",
-        "tonalRamp": [
-          "#221507",
-          "#452b0d",
-          "#734612",
-          "#a86415",
-          "#e98816",
-          "#eaa657",
-          "#eec596",
-          "#f5e2cc"
+          "#0e1610",
+          "#152018",
+          "#1a2618",
+          "#243020",
+          "#2a3820",
+          "#3a4a28",
+          "#5a6a40",
+          "#8a9a70"
         ]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Ink",
-        "canonical": "#2a1a0c",
+        "canonical": "#1a140c",
         "tonalRamp": [
-          "#1d140b",
-          "#3c2816",
-          "#634022",
-          "#8f5b2d",
-          "#c67b39",
-          "#d29d70",
-          "#dfc0a4",
-          "#eedfd3"
-        ]
-      },
-      "hp": {
-        "role": "state",
-        "displayName": "HP Red",
-        "canonical": "#c9432f",
-        "tonalRamp": [
-          "#1e0d0a",
-          "#3e1914",
-          "#67271e",
-          "#953628",
-          "#cf4530",
-          "#d7786a",
-          "#e3a9a1",
-          "#f0d5d1"
-        ]
-      },
-      "mp": {
-        "role": "state",
-        "displayName": "MP Green",
-        "canonical": "#4a8f6a",
-        "tonalRamp": [
-          "#0f1a14",
-          "#1e3428",
-          "#305541",
-          "#427a5c",
-          "#57a87d",
-          "#85bd9f",
-          "#b1d3c1",
-          "#d9e8e0"
+          "#0a0806",
+          "#1a140c",
+          "#4a3a28",
+          "#6a5a40",
+          "#8a7a60",
+          "#b0a080",
+          "#d8c8a8",
+          "#f0e8d0"
         ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Pixel Display",
-        "purpose": "App title only, topbar."
+        "purpose": "Topbar title only — Jersey 15 at 1.5rem with hard drop shadow."
       },
       "label": {
         "displayName": "Pixel Label",
-        "purpose": "All short HUD chrome — headers, buttons, flags, state pills, provider names. Never body copy."
+        "purpose": "Short HUD chrome — sidebar headers, buttons, flags, state pills, provider names. Never body copy."
       },
       "body": {
         "displayName": "Work Sans Body",
@@ -162,43 +132,53 @@
       {
         "name": "sprite-ground",
         "value": "drop-shadow(0 3px 2px rgba(0,0,0,0.5))",
-        "purpose": "Grounds flat SVG party sprites and drawer sprite with a hard offset shadow."
+        "purpose": "Grounds DOM portraits; Pixi uses hard shadow rects under kits."
       },
       {
         "name": "panel-drop",
         "value": "0 4px 0 rgba(0,0,0,0.35)",
-        "purpose": "Hard offset under the topbar, pixel-art panel edge."
+        "purpose": "Hard offset under the topbar — pixel panel ledge."
       },
       {
-        "name": "bevel-inset",
-        "value": "inset 1px 1px 0 var(--gold-bright), inset -2px -2px 0 #a9501f",
-        "purpose": "Raised beveled game-UI surface on pixel buttons and the modal."
+        "name": "snes-bevel",
+        "value": "inset 2px 2px 0 var(--bevel-hi), inset -3px -3px 0 var(--bevel-lo), 3px 3px 0 rgba(0,0,0,0.35)",
+        "purpose": "Raised SNES wood/gold control on .pixel-btn and wood inventory slots."
+      },
+      {
+        "name": "sidebar-bevel",
+        "value": "inset 3px 0 0 var(--bevel-hi), inset -2px 0 0 var(--bevel-lo)",
+        "purpose": "Recessed wood panel edge on the quest sidebar."
       }
     ],
     "motion": [
       {
-        "name": "firewave",
-        "value": "scaleY/scaleX pulse, 0.9s ease-in-out infinite",
-        "purpose": "Campfire flame flicker."
+        "name": "fire-hard",
+        "value": "Pixi multi-rect flame redraw each frame",
+        "purpose": "Hard fire light at camp center — urgency anchor."
+      },
+      {
+        "name": "kit-patrol",
+        "value": "walk/idle brain + 4-frame walk sheet",
+        "purpose": "Procedural kits patrol waypoints; calm vs urgent row Y offsets."
       },
       {
         "name": "status-bob",
         "value": "translateY(-3px), 1.6s ease-in-out infinite",
-        "purpose": "Bobbing status icon above party sprites needing attention."
+        "purpose": "DOM StatusIcon bob for waiting/failed stands."
       },
       {
         "name": "rune-glow-pulse",
         "value": "opacity/scaleX pulse, 2.4s ease-in-out infinite",
-        "purpose": "Ambient glow ring beneath a party stand's state color."
+        "purpose": "Ambient glow under DOM party stands."
       },
       {
         "name": "drawer-slide",
         "value": "transform 0.22s ease",
-        "purpose": "Session drawer slide-in/out."
+        "purpose": "Session drawer and scrim opacity."
       },
       {
         "name": "reduced-motion-off",
-        "value": "all animation/transition/transform disabled under prefers-reduced-motion: reduce",
+        "value": "animation/transition/transform disabled under prefers-reduced-motion: reduce",
         "purpose": "Accessibility fallback."
       }
     ],
@@ -207,112 +187,147 @@
         "name": "mobile",
         "value": "760px"
       }
-    ]
+    ],
+    "typography": {
+      "display": {
+        "family": "Cinzel Decorative",
+        "role": "Product title"
+      },
+      "label": {
+        "family": "Pixelify Sans",
+        "role": "HUD chrome"
+      },
+      "body": {
+        "family": "Cormorant Garamond",
+        "role": "Long read"
+      }
+    },
+    "northStar": "Craft Pixel",
+    "replacedWorld": "SNES Party Camp"
   },
   "components": [
     {
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Gold beveled HUD button — recruit session, launch, send message.",
-      "html": "<button class=\"ds-btn-primary\">+ Recruit session</button>",
-      "css": ".ds-btn-primary { font-family: 'Jersey 15', sans-serif; font-size: 0.85rem; font-weight: 400; letter-spacing: 0.02em; color: #2a1a0c; background: #e2703a; border: 3px solid #452712; box-shadow: inset 1px 1px 0 #f2955f, inset -2px -2px 0 #a9501f; padding: 0.55rem 1.1rem; clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px); cursor: pointer; } .ds-btn-primary:hover { background: #f2955f; } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid #f2955f; outline-offset: 2px; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.55; }"
+      "description": "Ember SNES-bevel HUD button — Recruit, Send, horn submit.",
+      "html": "<button class=\"ds-btn-primary\">+ Recruit</button>",
+      "css": ".ds-btn-primary { font-family: 'Jersey 15', sans-serif; font-size: 0.95rem; font-weight: 400; letter-spacing: 0.03em; color: #2a1a0c; background: #e2703a; border: 3px solid #452712; box-shadow: inset 2px 2px 0 #b98a52, inset -3px -3px 0 #2a1508, 3px 3px 0 rgba(0,0,0,0.35); padding: 0.55rem 1.1rem; clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px); cursor: pointer; } .ds-btn-primary:hover { background: #f2955f; } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid #f2955f; outline-offset: 2px; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.55; }"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Plain-bordered ghost button — cancel, interrupt, resume, copy path.",
+      "description": "Square parchment ghost — interrupt, resume, cancel, copy path.",
       "html": "<button class=\"ds-btn-secondary\">Interrupt</button>",
-      "css": ".ds-btn-secondary { font-family: 'Work Sans', sans-serif; font-size: 0.8rem; padding: 0.4rem 0.75rem; border: 2px solid #63492c; background: #e0c99a; color: #2a1a0c; cursor: pointer; } .ds-btn-secondary:hover { background: #f2e2c4; } .ds-btn-secondary:focus-visible { outline: 2px solid #f2955f; outline-offset: 2px; }"
+      "css": ".ds-btn-secondary { font-family: 'Work Sans', sans-serif; font-size: 0.78rem; padding: 0.35rem 0.7rem; border: 2px solid #63492c; background: #e0c99a; color: #2a1a0c; cursor: pointer; } .ds-btn-secondary:hover { background: #f2e2c4; } .ds-btn-secondary:focus-visible { outline: 2px solid #f2955f; outline-offset: 2px; } .ds-btn-secondary.danger { border-color: #e5473b; color: #e5473b; background: transparent; }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Modal/compose field — warm off-white on square 2px border.",
-      "html": "<input class=\"ds-input\" placeholder=\"/path/to/an/existing/repo\" />",
-      "css": ".ds-input { border: 2px solid #63492c; padding: 0.5rem 0.6rem; font-family: 'Work Sans', sans-serif; font-size: 0.9rem; background: #fff8e8; color: #2a1a0c; } .ds-input:focus-visible { outline: 2px solid #f2955f; outline-offset: 2px; }"
+      "description": "Warm off-white square field on parchment surfaces.",
+      "html": "<input class=\"ds-input\" placeholder=\"Message this character…\" />",
+      "css": ".ds-input { border: 2px solid #63492c; padding: 0.5rem 0.6rem; font-family: 'Work Sans', sans-serif; font-size: 0.85rem; background: #fff8e8; color: #2a1a0c; caret-color: #e2703a; } .ds-input:focus-visible { outline: 2px solid #f2955f; outline-offset: 2px; }"
     },
     {
       "name": "Quest Token",
       "kind": "card",
       "refersTo": "quest-token",
-      "description": "Sidebar mini-card for a working session — sprite, provider, repo path, HP/MP bars.",
-      "html": "<button class=\"ds-quest-token\"><div class=\"ds-mini-provider\">Claude Code</div><div class=\"ds-mini-repo\">livein/livein-web</div><div class=\"ds-bar-track\"><div class=\"ds-bar-fill\" style=\"width:64%\"></div></div></button>",
-      "css": ".ds-quest-token { display: flex; flex-direction: column; gap: 4px; width: 100%; background: rgba(255,255,255,0.04); border: 2px solid #452712; padding: 0.45rem; color: #fbe9d4; text-align: left; cursor: pointer; } .ds-quest-token:hover { background: rgba(255,255,255,0.09); border-color: #e2703a; } .ds-mini-provider { font-family: 'Jersey 15', sans-serif; font-size: 0.62rem; color: #f2955f; } .ds-mini-repo { font-size: 0.7rem; color: #e0c99a; } .ds-bar-track { height: 4px; border: 2px solid #452712; background: #431c14; } .ds-bar-fill { height: 100%; background: #c9432f; }"
+      "description": "Wood inventory slot for a working agent — procedural mini portrait, provider, repo. No resource bars.",
+      "html": "<button class=\"ds-quest-token\"><div class=\"ds-mini-provider\">Claude Code</div><div class=\"ds-mini-repo\">liveagents/web</div></button>",
+      "css": ".ds-quest-token { display: flex; align-items: flex-start; gap: 0.55rem; width: 100%; background: #5a3418; border: 3px solid #452712; box-shadow: inset 2px 2px 0 #b98a52, inset -2px -2px 0 #2a1508; padding: 0.45rem; color: #fbe9d4; text-align: left; cursor: pointer; } .ds-quest-token:hover, .ds-quest-token.selected { background: #6a401e; border-color: #e2703a; } .ds-mini-provider { font-family: 'Jersey 15', sans-serif; font-size: 0.72rem; font-weight: 400; color: #f2955f; } .ds-mini-repo { font-family: 'Work Sans', sans-serif; font-size: 0.7rem; color: #e0c99a; }"
     },
     {
       "name": "Party Stand",
       "kind": "custom",
       "refersTo": "stand",
-      "description": "Camp character card — provider flag, state glow, pixel sprite, HP/MP bars. Selection/attention shown via the flag border, not the container.",
-      "html": "<button class=\"ds-stand\"><div class=\"ds-stand-flag\">Codex</div><div class=\"ds-rune-glow\"></div><div class=\"ds-sprite-wrap\"><svg viewBox=\"0 0 96 128\" width=\"56\" height=\"74\"><rect x=\"32\" y=\"16\" width=\"32\" height=\"32\" fill=\"#e8b088\"/><rect x=\"24\" y=\"48\" width=\"48\" height=\"40\" fill=\"#2f4d7a\"/></svg></div><div class=\"ds-bars\"><div class=\"ds-bar-track\"><div class=\"ds-bar-fill\" style=\"width:48%\"></div></div><div class=\"ds-bar-track ds-mp\"><div class=\"ds-bar-fill ds-mp\" style=\"width:70%\"></div></div></div></button>",
-      "css": ".ds-stand { position: relative; display: flex; flex-direction: column; align-items: center; background: none; border: none; padding: 0; color: inherit; cursor: pointer; } .ds-stand-flag { font-family: 'Jersey 15', sans-serif; font-size: 0.62rem; font-weight: 400; padding: 3px 8px; border: 2px solid #452712; background: #f2e2c4; color: #2a1a0c; clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%, 0 3px); } .ds-stand:hover .ds-stand-flag, .ds-stand:focus-visible .ds-stand-flag { border-color: #e2703a; box-shadow: 0 0 0 2px rgba(226,112,58,0.35); } .ds-rune-glow { width: 56px; height: 15px; border-radius: 50%; margin-top: -6px; opacity: 0.85; filter: blur(1px); background: radial-gradient(ellipse at center, #f0a83c, transparent 70%); } .ds-sprite-wrap { width: 56px; height: 74px; margin-top: 4px; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.5)); } .ds-sprite-wrap svg { image-rendering: pixelated; } .ds-bars { width: 70px; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; } .ds-bar-track { height: 6px; border: 2px solid #452712; background: #431c14; } .ds-bar-track.ds-mp { background: #16281c; } .ds-bar-fill { height: 100%; background: #c9432f; } .ds-bar-fill.ds-mp { background: #4a8f6a; }"
+      "description": "DOM stand for drawer/non-Pixi — flag, glow, procedural portrait, WAITING/FAILED glyph only. No HP/MP.",
+      "html": "<button class=\"ds-stand\"><div class=\"ds-stand-flag\">Cursor</div><div class=\"ds-rune-glow\"></div><div class=\"ds-sprite-wrap\"><div class=\"ds-status\" style=\"background:#f0a83c\"></div></div></button>",
+      "css": ".ds-stand { position: relative; display: flex; flex-direction: column; align-items: center; background: none; border: none; padding: 0; color: inherit; cursor: pointer; } .ds-stand.calm { filter: brightness(0.8) saturate(0.85); } .ds-stand-flag { font-family: 'Jersey 15', sans-serif; font-size: 0.72rem; font-weight: 400; padding: 3px 8px; border: 2px solid #452712; background: #f2e2c4; color: #2a1a0c; clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%, 0 3px); } .ds-stand.needs-attention .ds-stand-flag { border-color: #e2703a; box-shadow: 0 0 0 2px rgba(224,184,74,0.35); } .ds-stand.selected .ds-stand-flag { border-color: #f2955f; box-shadow: 0 0 0 2px #f2955f; } .ds-rune-glow { width: 56px; height: 15px; border-radius: 50%; margin-top: -6px; opacity: 0.85; filter: blur(1px); background: radial-gradient(ellipse at center, #f0a83c, transparent 70%); } .ds-sprite-wrap { position: relative; width: 68px; height: 90px; margin-top: 4px; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.5)); background: #233b1e; image-rendering: pixelated; } .ds-status { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); width: 18px; height: 18px; border: 2px solid #452712; border-radius: 50%; }"
     },
     {
       "name": "Session Drawer Header",
       "kind": "custom",
       "refersTo": "drawer-body",
-      "description": "Resizable side panel header — sprite, name, repo, state pill. Never covers the camp behind it.",
-      "html": "<div class=\"ds-drawer-header\"><div class=\"ds-drawer-sprite\"><svg viewBox=\"0 0 96 128\" width=\"40\" height=\"54\"><rect x=\"32\" y=\"16\" width=\"32\" height=\"32\" fill=\"#e8b088\"/></svg></div><div><div class=\"ds-drawer-name\">Claude Code — livein/livein-web</div><div class=\"ds-drawer-repo\">main</div><div class=\"ds-state-pill\" style=\"background:#f0a83c;color:#2a1a0c\">Waiting</div></div></div>",
-      "css": ".ds-drawer-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; background: #7a4a26; border-bottom: 4px solid #452712; } .ds-drawer-name { font-family: 'Jersey 15', sans-serif; color: #f2955f; font-size: 0.85rem; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); } .ds-drawer-repo { font-size: 0.75rem; color: #e0c99a; font-weight: 600; margin-top: 2px; } .ds-state-pill { font-family: 'Jersey 15', sans-serif; font-size: 0.62rem; padding: 2px 8px; border: 2px solid #452712; display: inline-block; margin-top: 4px; }"
+      "description": "Resizable side panel header — wood bar over parchment body; never covers the party.",
+      "html": "<div class=\"ds-drawer-header\"><div class=\"ds-drawer-sprite\"></div><div><div class=\"ds-drawer-name\">Claude Code</div><div class=\"ds-drawer-repo\">main</div><div class=\"ds-state-pill\" style=\"background:#f0a83c;color:#2a1a0c\">Waiting</div></div></div>",
+      "css": ".ds-drawer-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; background: #7a4a26; border-bottom: 4px solid #452712; } .ds-drawer-sprite { width: 40px; height: 54px; background: #233b1e; flex: 0 0 auto; image-rendering: pixelated; } .ds-drawer-name { font-family: 'Jersey 15', sans-serif; font-weight: 400; color: #f2955f; font-size: 0.85rem; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); } .ds-drawer-repo { font-family: 'Work Sans', sans-serif; font-size: 0.75rem; color: #e0c99a; font-weight: 600; margin-top: 2px; } .ds-state-pill { font-family: 'Jersey 15', sans-serif; font-weight: 400; font-size: 0.62rem; padding: 2px 8px; border: 2px solid #452712; display: inline-block; margin-top: 4px; }"
     },
     {
       "name": "Chat Bubble",
       "kind": "custom",
       "refersTo": "bubble",
-      "description": "Transcript entry in the pilot chat — user/assistant/tool/permission/error/system variants, always on parchment.",
+      "description": "Pilot transcript bubble on parchment — user/assistant/tool/error/system. No permission-approve bubble (tool permissions not mediated).",
       "html": "<div class=\"ds-bubble ds-user\"><span class=\"ds-bubble-label\">You</span><p>Fix the flaky test in session.go</p></div>",
-      "css": ".ds-bubble { padding: 0.6rem 0.75rem; border: 2px solid #63492c; background: #fff8e8; max-width: 92%; font-size: 0.9rem; line-height: 1.5; } .ds-bubble p { margin: 0; } .ds-bubble-label { display: block; font-size: 0.68rem; font-weight: 700; color: #63492c; margin-bottom: 0.2rem; } .ds-bubble.ds-user { margin-left: auto; background: #e9dcbd; }"
+      "css": ".ds-bubble { padding: 0.6rem 0.75rem; border: 2px solid #63492c; background: #fff8e8; max-width: 92%; font-family: 'Work Sans', sans-serif; font-size: 0.9rem; line-height: 1.5; color: #2a1a0c; } .ds-bubble p { margin: 0; } .ds-bubble-label { display: block; font-size: 0.68rem; font-weight: 700; color: #63492c; margin-bottom: 0.2rem; } .ds-bubble.ds-user { margin-left: auto; background: #e9dcbd; }"
+    },
+    {
+      "name": "Waiting Status Glyph",
+      "kind": "chip",
+      "refersTo": "waiting",
+      "description": "Distinct WAITING cue — amber plate + question-mark pixel cells; never color alone.",
+      "html": "<div class=\"ds-status-waiting\" aria-label=\"Waiting\"></div>",
+      "css": ".ds-status-waiting { width: 18px; height: 18px; border: 2px solid #452712; border-radius: 50%; background: #f0a83c; box-shadow: inset 0 0 0 2px #1a1008; }"
     }
   ],
   "narrative": {
-    "northStar": "The Attention Campfire",
-    "overview": "LiveAgentsView renders its agent roster as a D&D party at camp, not a status table. A session that is `working` stands out on a quest, off in a side sidebar as a compact token; every other state — waiting, blocked, failed, done, idle — pulls that agent back to camp, where it stands as a full pixel-art character lit by a shared campfire. Urgency reads as literal proximity to the fire: the front row (waiting/blocked/failed) sits bright and animated near the flame; the back row (done/idle) is dimmed and desaturated further back. Nothing is a badge count. Everything is staging. The whole surface is 16-bit medieval pixel art — code-drawn SVG rects on an 8px grid, no image generation, no stock icon packs — paired with modern, legible type for anything actually read (chat bubbles, session details, form labels). A dedicated pixel display face is reserved strictly for HUD chrome: titles, state labels, buttons, flags. It never appears in body copy or transcript text, where legibility at length matters more than the bit-art bit. The visual system commits to the game-HUD bit fully rather than treating it as decoration on an admin list: wood-and-parchment beveled panels with clipped corners, a torch-lit gradient sky, HP/mana bars under every character. Those bars are an explicit, disclosed placeholder — seeded-random per session id, not real telemetry, because no token-consumption field exists on the Session type yet. The system does not pretend otherwise anywhere in the UI or in this document.",
+    "northStar": "SNES Party Camp",
+    "overview": "LiveAgentsView stages coding agents as a party at camp, never as a status table. A session that is `working` leaves for a quest and appears only in the left quest sidebar as a compact token. Every other activity — `waiting`, `failed`, `ready` — returns to camp: a Pixi scene with ember dusk ground, a hard fire, tents/trees, and procedural 16-bit kits that patrol on a shared grid. Urgency is staging: urgent agents walk nearer the flame at full opacity with distinct WAITING/FAILED glyphs and ground rings; calm agents sit further back, dimmed (`alpha ≈ 0.82` in Pixi; `brightness(0.8) saturate(0.85)` on DOM stands). Select opens a resizable right drawer that never covers the party.\n\nChrome is wood panels with hard SNES bevels (inset highlight/lowlight + thick wood borders), not classic Final Fantasy blue menu fill. Party art is code-baked pixel kits (`camp/defs` → Pixi textures / canvas portraits), not hand PNGs and not legacy SVG rect sprites as the shipping path. Jersey 15 owns short HUD strings; Work Sans owns anything read at length. There are no fake HP/MP bars under party members — resource cosplay was removed by design.",
     "keyCharacteristics": [
-      "A camp scene (fire, tents, banner, treeline) as the primary layout device, not a card grid",
-      "Beveled parchment-and-wood chrome with clipped (not rounded) corners throughout",
-      "Pixel display face for HUD labels only; a legible humanist sans for everything read at length",
-      "Front-row/back-row brightness as the sole urgency signal — no numeric badges",
-      "Drawn pixel-block icons and flat vector \"runes\" in place of any unicode/emoji glyph"
+      "Attention is staging: quest sidebar = working; camp = everyone else",
+      "Ember-wood SNES bevel chrome over parchment read surfaces",
+      "Pixi camp + procedural kits (race/class readable across the room)",
+      "Urgency by row + distinct WAITING/FAILED cues — never color alone",
+      "Jersey 15 HUD / Work Sans long-read split; no party HP/MP chrome"
     ],
     "rules": [
       {
         "name": "The Firelight Proximity Rule",
-        "body": "Urgency is never a number or a badge — it is literal brightness and position. The front row near the campfire is full-color and animated (glow pulse, hovering status icon); the back row is filter: brightness(0.8) saturate(0.85) and sits further from the flame. If a new state needs to signal \"needs you,\" it joins the front row; it does not get a red dot.",
+        "body": "Urgency is position + brightness + a WAITING or FAILED glyph (and ring). Calm agents dim and sit further from the fire. Do not invent a badge count or red-dot urgency system.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ember-Wood Rule",
+        "body": "HUD chrome is wood + ember bevels. Do not paint menus in classic blue FF fill; blue may appear only as kit cloth/metal inside procedural sprites.",
         "section": "colors"
       },
       {
         "name": "The Parchment-Is-Reading Rule",
-        "body": "Dark wood/ember surfaces are for the camp scene and its chrome. The moment content needs to be read at length — chat, session details, forms — the surface switches to parchment (#f2e2c4) with dark ink text. This is the one legibility escape hatch in an otherwise dark, decorative palette.",
+        "body": "Dark wood/ember for camp and chrome; switch to parchment the moment content is read at length (chat, details, recruit ledger, forms).",
+        "section": "colors"
+      },
+      {
+        "name": "The No Fake Meters Rule",
+        "body": "Party stands and quest tokens do not show HP/MP or token-consumption bars. Do not revive resource cosplay under kits.",
         "section": "colors"
       },
       {
         "name": "The Chrome-Only Pixel Rule",
-        "body": "Jersey 15 is applied only via the .pixel-face class to fixed, short UI strings — titles, labels, button text, state pills. It never appears on body copy, transcript bubbles, form input values, or any text whose length isn't controlled by the design (that's Work Sans's job). This is the load-bearing accessibility decision that keeps the retro face from fighting legibility.",
+        "body": "Jersey 15 only on short controlled strings via .pixel-face or explicit Jersey on buttons — always font-weight: 400 (single shipped weight). Never on transcript, inputs, or free-length copy.",
         "section": "typography"
       },
       {
         "name": "The Hard-Edge Rule",
-        "body": "Where the system needs depth, offsets are crisp integers (3px 2px, 0 4px 0) with zero or minimal blur, never a soft diffuse shadow. Soft ambient shadows would read as flat-modern UI, not pixel-art HUD.",
+        "body": "Depth offsets stay crisp integers with zero or near-zero blur. Soft ambient UI shadows are out of world.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do confine Jersey 15 to .pixel-face chrome strings only (titles, labels, buttons, state pills), always at font-weight 400; use Work Sans for anything read at length.",
-      "Do use the clipped octagonal bevel (clip-path polygon) for wood/parchment HUD chrome — buttons, frames, the stand-flag banner.",
-      "Do signal urgency through front-row/back-row position and brightness (filter: brightness(0.8) saturate(0.85)), never through a badge, counter, or dot.",
-      "Do disclose HP/MP bars as placeholder wherever they appear or are discussed — they are seeded-random per session id, not derived from real token/context data.",
-      "Do keep dark wood/ember surfaces for the camp scene and switch to parchment the moment content must be read at length (chat, details, forms).",
-      "Do draw every icon (provider runes, status glyphs) as flat SVG shapes or 2-unit pixel-block cells in the same stroke language as the party sprites — never a unicode/emoji glyph or an external icon font."
+      "Do keep Jersey 15 on short HUD strings at weight 400; Work Sans for long read.",
+      "Do use wood SNES bevels (bevel-hi / bevel-lo) on chrome and primary actions.",
+      "Do stage urgency with camp row + WAITING/FAILED glyphs/rings — never color alone.",
+      "Do bake party art through the procedural kit path shared by Pixi and Portrait.",
+      "Do switch to parchment for transcript, details, recruit, and forms.",
+      "Do keep the session drawer as a side panel that leaves the party visible."
     ],
     "donts": [
-      "Don't apply Jersey 15 to body copy, transcript text, or any string whose length isn't controlled by the design — it breaks legibility at length.",
-      "Don't round corners on cards, inputs, the drawer, or the modal; square corners (or the specific clipped-bevel cut) are the only two shapes in this system.",
-      "Don't use soft, blurred ambient shadows; depth reads through hard-offset drop-shadows and inset bevels only.",
-      "Don't let the resizable session drawer cover or hide the rest of the party — it is a side panel by design, not a route or full-screen takeover.",
-      "Don't treat the HP/mana bars as, or extend them to look like, real telemetry until a token-consumption field actually exists on the Session type."
+      "Don't revive HP/MP (or fake token meters) under party stands or quest tokens.",
+      "Don't paint HUD chrome in classic blue Final Fantasy menu fill.",
+      "Don't replace the Pixi + kit baker path with legacy SVG rect party sprites as the shipping art.",
+      "Don't put Jersey 15 on body copy, transcript, or uncontrolled-length strings.",
+      "Don't use soft blurred elevation shadows or rounded card language (border-radius stays 0).",
+      "Don't let the drawer or recruit flow become a status table that replaces the camp staging."
     ]
   }
 }

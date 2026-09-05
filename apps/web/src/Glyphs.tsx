@@ -131,3 +131,18 @@ export function StatusIcon({ activity, className }: { activity: Activity; classN
 export function UnreadDot({ className }: { className?: string }) {
   return <span className={className ?? 'unread-dot'} aria-hidden="true" />
 }
+
+// Disclosure arrow for the transcript's collapsed rows, drawn as a stepped
+// stack of blocks so it sits in the same pixel grammar as the runes above
+// instead of a font arrow. Points right; the row rotates it when open.
+export function ChevronRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={5} y={2} width={2} height={2} fill="currentColor" />
+      <rect x={7} y={4} width={2} height={2} fill="currentColor" />
+      <rect x={9} y={6} width={2} height={4} fill="currentColor" />
+      <rect x={7} y={10} width={2} height={2} fill="currentColor" />
+      <rect x={5} y={12} width={2} height={2} fill="currentColor" />
+    </svg>
+  )
+}

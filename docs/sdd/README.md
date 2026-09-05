@@ -29,6 +29,7 @@ Each step leaves a handoff block to paste into another agent.
 | [recruit-flow-redesign](specs/recruit-flow-redesign.md) | done | validate |
 | [character-model-redesign](specs/character-model-redesign.md) | validated | none |
 | [local-api-hardening](specs/local-api-hardening.md) | validated | none |
+| [chat-transcript-rendering](specs/chat-transcript-rendering.md) | validated | none |
 
 Statuses: `draft` · `ready` · `in-progress` · `done` · `validated` · `abandoned`.
 

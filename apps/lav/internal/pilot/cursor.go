@@ -3,6 +3,7 @@ package pilot
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/Antiloope/LiveAgentsView/apps/lav/internal/model"
 )
@@ -69,6 +70,26 @@ func cursorToolName(raw json.RawMessage) string {
 	return "tool"
 }
 
+// flushCursorThinking emits whatever reasoning deltas have piled up as one
+// transcript event and empties the buffer. cursor-agent streams its
+// reasoning one fragment at a time and the line that closes a run carries no
+// text of its own, so the fragments are the reasoning: joined here, they
+// become a single readable block instead of dozens of one-word events.
+func (m *Manager) flushCursorThinking(ctx context.Context, pc *pilotChar) {
+	pc.mu.Lock()
+	parts := pc.thinking
+	pc.thinking = nil
+	pc.mu.Unlock()
+	if len(parts) == 0 {
+		return
+	}
+	text := strings.TrimSpace(strings.Join(parts, ""))
+	if text == "" {
+		return
+	}
+	m.emit(ctx, pc, Event{Kind: EventThinking, Text: text})
+}
+
 // handleCursorLine turns one raw stream-json line from cursor-agent's stdout
 // (relayed live by pilot-runner, or replayed from its durable transcript on
 // reconnect) into transcript events and activity transitions.
@@ -99,6 +120,7 @@ func (m *Manager) handleCursorLine(ctx context.Context, pc *pilotChar, line []by
 		}
 
 	case "assistant":
+		m.flushCursorThinking(ctx, pc)
 		var a cursorAssistantLine
 		if err := json.Unmarshal(line, &a); err != nil {
 			return
@@ -114,6 +136,7 @@ func (m *Manager) handleCursorLine(ctx context.Context, pc *pilotChar, line []by
 		}
 
 	case "tool_call":
+		m.flushCursorThinking(ctx, pc)
 		if probe.Subtype != "started" {
 			return // "completed" is skipped — the assistant's own follow-up text already narrates the outcome
 		}
@@ -127,10 +150,24 @@ func (m *Manager) handleCursorLine(ctx context.Context, pc *pilotChar, line []by
 		m.emit(ctx, pc, Event{Kind: EventToolCall, ToolName: cursorToolName(t.ToolCall), ToolInput: t.ToolCall, RequestID: t.CallID})
 
 	case "thinking":
-		// Streamed reasoning deltas — too noisy for a chat transcript, same
-		// call as Claude Code's hook_started/hook_response/api_retry noise.
+		if probe.Subtype != "delta" {
+			// "completed" closes a reasoning run and carries no text of its
+			// own; everything it stands for is already in the buffer.
+			m.flushCursorThinking(ctx, pc)
+			return
+		}
+		var t struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(line, &t); err != nil || t.Text == "" {
+			return
+		}
+		pc.mu.Lock()
+		pc.thinking = append(pc.thinking, t.Text)
+		pc.mu.Unlock()
 
 	case "result":
+		m.flushCursorThinking(ctx, pc)
 		var r struct {
 			IsError bool   `json:"is_error"`
 			Result  string `json:"result"`

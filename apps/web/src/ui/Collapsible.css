@@ -1,0 +1,82 @@
+/* Collapsed transcript rows: reasoning, tool calls, raw provider lines.
+   Square parchment strips that read as one line until opened. */
+
+.ui-fold {
+  align-self: flex-start;
+  max-width: 92%;
+  min-width: 0;
+  border: 2px solid rgba(138, 104, 40, 0.55);
+  background: #e4dcc2;
+}
+.ui-fold__row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.3rem 0.45rem;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--ink-soft);
+  cursor: pointer;
+  min-width: 0;
+}
+.ui-fold__row:hover {
+  background: rgba(197, 160, 89, 0.25);
+}
+.ui-fold__row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.ui-fold__chevron {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  transition: transform 0.12s steps(2);
+}
+.ui-fold.is-open .ui-fold__chevron {
+  transform: rotate(90deg);
+}
+.ui-fold__label {
+  font-family: 'Pixelify Sans', sans-serif;
+  font-size: 0.68rem;
+  flex: 0 0 auto;
+}
+.ui-fold__summary {
+  font-family: ui-monospace, 'SF Mono', monospace;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ui-fold__body {
+  padding: 0.1rem 0.5rem 0.5rem;
+  border-top: 1px solid rgba(138, 104, 40, 0.4);
+  margin-top: 0.1rem;
+}
+.ui-fold__body pre {
+  margin: 0.35rem 0 0;
+  font-family: ui-monospace, 'SF Mono', monospace;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+/* Reasoning is the character's own voice, so it reads as prose rather than
+   as the mono payload a tool call carries. */
+.ui-fold--thinking {
+  background: rgba(240, 226, 192, 0.75);
+  border-style: dashed;
+}
+.ui-fold--thinking .ui-fold__summary {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+.ui-fold--thinking .ui-fold__body {
+  font-style: italic;
+  color: var(--ink-soft);
+}

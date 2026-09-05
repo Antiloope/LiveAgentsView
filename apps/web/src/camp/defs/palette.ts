@@ -53,8 +53,12 @@ export function withKitColors(
 ): Palette {
   const colors = [...base.colors]
   for (const [role, hex] of Object.entries(overrides)) {
-    if (!hex) continue
-    const i = roleIndex(base, role)
+    // A kit's color record also carries non-color fields (proportions), and
+    // a name the palette has no role for is not a color either — both would
+    // otherwise land in the color table and break every later parse of it.
+    if (typeof hex !== 'string' || !hex) continue
+    const i = base.roles.indexOf(role as Palette['roles'][number])
+    if (i < 0) continue
     colors[i] = hex
   }
   return { roles: base.roles, colors }

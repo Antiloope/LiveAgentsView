@@ -22,6 +22,10 @@
   --gold-deep: #8a6828;
   --focus: #e8c878;
   --danger: #e5473b;
+  /* Sealing wax — the ruled margin of the transcript, the seal on a sent
+     message, and the press that sends it. */
+  --wax: #c9432f;
+  --wax-deep: #8e2418;
   --bevel-hi: #e8c878;
   --bevel-lo: #1a2744;
   --waiting: #e8a838;

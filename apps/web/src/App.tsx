@@ -60,18 +60,6 @@ export default function App() {
     setSelectedId((prev) => (prev === id ? null : id))
   }, [])
 
-  const dismissCharacterLocally = useCallback(
-    (id: string) => {
-      setCharacters((prev) => {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      })
-      setSelectedId((prev) => (prev === id ? null : prev))
-    },
-    [],
-  )
-
   return (
     <div className="app">
       <TopBar
@@ -120,7 +108,6 @@ export default function App() {
         character={selectedCharacter}
         onClose={() => setSelectedId(null)}
         onCharacterUpdate={(c) => setCharacters((prev) => ({ ...prev, [c.id]: c }))}
-        onDismissed={dismissCharacterLocally}
       />
 
       {showRecruit && (

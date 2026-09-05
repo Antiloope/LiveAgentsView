@@ -1,37 +1,41 @@
 /* Collapsed transcript rows: reasoning, tool calls, raw provider lines.
-   Square parchment strips that read as one line until opened. */
+   They sit in the log's margin as annotations on the page rather than as
+   cards of their own — a rule under the row is the only frame, and the body
+   only takes a parchment panel once it is actually opened. */
 
 .ui-fold {
-  align-self: flex-start;
-  max-width: 92%;
+  align-self: stretch;
   min-width: 0;
-  border: 2px solid rgba(138, 104, 40, 0.55);
-  background: #e4dcc2;
+  margin-left: -0.35rem;
 }
 .ui-fold__row {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  align-items: baseline;
+  gap: 0.4rem;
   width: 100%;
-  padding: 0.3rem 0.45rem;
+  padding: 0.15rem 0.2rem;
   background: none;
   border: none;
+  border-bottom: 1px solid rgba(138, 104, 40, 0.3);
   text-align: left;
-  color: var(--ink-soft);
+  color: #6a5230;
   cursor: pointer;
   min-width: 0;
 }
 .ui-fold__row:hover {
-  background: rgba(197, 160, 89, 0.25);
+  color: #3f2e14;
+  border-bottom-color: rgba(138, 104, 40, 0.7);
 }
 .ui-fold__row:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 .ui-fold__chevron {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   flex: 0 0 auto;
+  align-self: center;
+  color: #8a6828;
   transition: transform 0.12s steps(2);
 }
 .ui-fold.is-open .ui-fold__chevron {
@@ -39,44 +43,46 @@
 }
 .ui-fold__label {
   font-family: 'Pixelify Sans', sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #57411f;
   flex: 0 0 auto;
 }
 .ui-fold__summary {
-  font-family: ui-monospace, 'SF Mono', monospace;
-  font-size: 0.72rem;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 0.96rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
 }
 .ui-fold__body {
-  padding: 0.1rem 0.5rem 0.5rem;
-  border-top: 1px solid rgba(138, 104, 40, 0.4);
-  margin-top: 0.1rem;
+  padding: 0.4rem 0.55rem;
+  margin-top: 0.35rem;
+  border: 1px solid rgba(138, 104, 40, 0.45);
+  background: rgba(255, 248, 232, 0.7);
 }
 .ui-fold__body pre {
-  margin: 0.35rem 0 0;
+  margin: 0;
   font-family: ui-monospace, 'SF Mono', monospace;
   font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 22rem;
   overflow: auto;
+  color: #3f2e14;
+}
+.ui-fold__body p {
+  margin: 0;
 }
 
-/* Reasoning is the character's own voice, so it reads as prose rather than
-   as the mono payload a tool call carries. */
-.ui-fold--thinking {
-  background: rgba(240, 226, 192, 0.75);
-  border-style: dashed;
-}
-.ui-fold--thinking .ui-fold__summary {
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-style: italic;
-}
+/* Reasoning is the character's own voice, so its body reads as prose. */
 .ui-fold--thinking .ui-fold__body {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.45;
   font-style: italic;
-  color: var(--ink-soft);
+  color: #4a3720;
 }

@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Character, PilotEvent } from './types'
 import { RACE_LABEL, ACTIVITY_COLOR, ACTIVITY_LABEL } from './sprites'
-import { Button, ChatBubble, Collapsible, HudLabel, Markdown, PortraitThumb, QuestIndicator, SessionChrome } from './ui'
+import {
+  CloseRune,
+  MenuRune,
+  PennantRune,
+  TentRune,
+  PauseRune,
+  HaltRune,
+  QuillRune,
+  SigilRune,
+  RaceRune,
+} from './Glyphs'
+import { Collapsible, Markdown, PortraitThumb, SessionChrome } from './ui'
 import {
   archiveCharacter,
-  dismissCharacter,
   fetchEvents,
   interruptCharacter,
   markRead,
@@ -12,6 +22,7 @@ import {
   stopCharacter,
   subscribeToEvents,
 } from './api'
+import './SessionDrawer.css'
 
 const DEFAULT_WIDTH = 460
 const MIN_WIDTH = 320
@@ -21,12 +32,12 @@ interface Props {
   character: Character | null
   onClose: () => void
   onCharacterUpdate: (character: Character) => void
-  onDismissed: (id: string) => void
 }
 
-export default function SessionDrawer({ character, onClose, onCharacterUpdate, onDismissed }: Props) {
+export default function SessionDrawer({ character, onClose, onCharacterUpdate }: Props) {
   const drawerRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const open = character !== null
 
   useEffect(() => {
@@ -59,13 +70,21 @@ export default function SessionDrawer({ character, onClose, onCharacterUpdate, o
     }
   }, [dragging])
 
+  // Escape closes the board first and the drawer only once nothing is open
+  // on top of it, so one press never does both.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose()
+      if (e.key !== 'Escape' || !open) return
+      if (menuOpen) setMenuOpen(false)
+      else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, menuOpen, onClose])
+
+  useEffect(() => {
+    if (!open) setMenuOpen(false)
+  }, [open, character?.id])
 
   // Move focus into the drawer for keyboard users when it opens, so Tab
   // starts from its own controls instead of wherever the party click left it.
@@ -87,7 +106,8 @@ export default function SessionDrawer({ character, onClose, onCharacterUpdate, o
           character={character}
           onClose={onClose}
           onCharacterUpdate={onCharacterUpdate}
-          onDismissed={onDismissed}
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
         />
       )}
     </SessionChrome>
@@ -98,52 +118,14 @@ function DrawerContent({
   character,
   onClose,
   onCharacterUpdate,
-  onDismissed,
+  menuOpen,
+  setMenuOpen,
 }: {
   character: Character
   onClose: () => void
   onCharacterUpdate: (character: Character) => void
-  onDismissed: (id: string) => void
-}) {
-  return (
-    <>
-      <div className="drawer-header">
-        <div className="drawer-sprite">
-          <PortraitThumb characterId={character.id} race={character.race} />
-        </div>
-        <div className="drawer-header-text">
-          <HudLabel as="div" className="name">
-            {RACE_LABEL[character.race]} — {character.repo || character.territory.path || character.id}
-          </HudLabel>
-          <div className="repo">{character.territory.branch || character.territory.path}</div>
-          {character.class && <span className="class-badge mono">{character.class}</span>}
-          <HudLabel
-            as="div"
-            className="state-pill"
-            style={{ background: ACTIVITY_COLOR[character.activity], color: character.activity === 'waiting' ? '#2a1a0c' : '#fff8e8' }}
-          >
-            {ACTIVITY_LABEL[character.activity]} · {character.presence}
-          </HudLabel>
-        </div>
-        <button type="button" className="drawer-close" aria-label="Close" onClick={onClose}>
-          ✕
-        </button>
-      </div>
-      <PilotChat character={character} onCharacterUpdate={onCharacterUpdate} onClose={onClose} onDismissed={onDismissed} />
-    </>
-  )
-}
-
-function PilotChat({
-  character,
-  onCharacterUpdate,
-  onClose,
-  onDismissed,
-}: {
-  character: Character
-  onCharacterUpdate: (character: Character) => void
-  onClose: () => void
-  onDismissed: (id: string) => void
+  menuOpen: boolean
+  setMenuOpen: (open: boolean) => void
 }) {
   const [events, setEvents] = useState<PilotEvent[]>([])
   const [draft, setDraft] = useState('')
@@ -199,8 +181,16 @@ function PilotChat({
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [events.length, character.activity])
 
-  const canStop = character.activity === 'working'
-  const canArchive = !character.archived
+  // A click anywhere else puts the board back up; the board and its plate
+  // keep their own clicks from counting as that.
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = () => setMenuOpen(false)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [menuOpen, setMenuOpen])
+
+  const working = character.activity === 'working'
 
   const runAction = useCallback(
     (action: () => Promise<void | Character>) => {
@@ -224,7 +214,12 @@ function PilotChat({
   }, [draft, runAction, character.id])
 
   const archive = useCallback(() => {
-    if (!window.confirm(`Archive ${RACE_LABEL[character.race]}? ${canStop ? 'Its current quest will be stopped. ' : ''}Its transcript and territory stay, and talking to it later wakes it again.`)) {
+    setMenuOpen(false)
+    if (
+      !window.confirm(
+        `Archive ${RACE_LABEL[character.race]}? ${working ? 'Its current quest will be stopped. ' : ''}Its transcript and territory stay, and talking to it later wakes it again.`,
+      )
+    ) {
       return
     }
     setBusy(true)
@@ -236,86 +231,190 @@ function PilotChat({
       })
       .catch((err) => setError(String(err)))
       .finally(() => setBusy(false))
-  }, [character.id, character.race, canStop, onCharacterUpdate, onClose])
+  }, [character.id, character.race, working, onCharacterUpdate, onClose, setMenuOpen])
 
-  const dismiss = useCallback(() => {
-    if (!window.confirm(`Dismiss ${RACE_LABEL[character.race]} for good? This stops it and deletes its transcript. This cannot be undone.`)) {
-      return
-    }
-    setBusy(true)
-    setError(null)
-    dismissCharacter(character.id)
-      .then(({ worktreeLeftAt }) => {
-        onDismissed(character.id)
-        onClose()
-        if (worktreeLeftAt) {
-          window.alert(`Its worktree had uncommitted changes, so it was left in place at:\n${worktreeLeftAt}`)
-        }
-      })
-      .catch((err) => setError(String(err)))
-      .finally(() => setBusy(false))
-  }, [character.id, character.race, onDismissed, onClose])
+  const branch = character.territory.branch || character.territory.path
 
   return (
     <>
-      <div className="drawer-pilot-actions">
-        {canStop && (
-          <>
-            <Button type="button" disabled={busy} onClick={() => runAction(() => interruptCharacter(character.id))}>
-              Interrupt
-            </Button>
-            <Button type="button" variant="danger" disabled={busy} onClick={() => runAction(() => stopCharacter(character.id))}>
-              Stop
-            </Button>
-          </>
-        )}
-        {canArchive && (
-          <Button type="button" disabled={busy} onClick={archive}>
-            Archive
-          </Button>
-        )}
-        <Button type="button" variant="danger" disabled={busy} onClick={dismiss}>
-          Dismiss
-        </Button>
+      <header className="sheet">
+        <div className="plates">
+          <button
+            type="button"
+            className="plate drawer-chamfer-sm"
+            aria-expanded={menuOpen}
+            aria-label="Character actions"
+            onClick={(e) => {
+              e.stopPropagation()
+              setMenuOpen(!menuOpen)
+            }}
+          >
+            <MenuRune />
+          </button>
+          <button type="button" className="plate drawer-chamfer-sm drawer-close" aria-label="Close" onClick={onClose}>
+            <CloseRune />
+          </button>
+        </div>
+
+        <div className="board-wrap">
+          <div
+            className={`board drawer-chamfer${menuOpen ? ' open' : ''}`}
+            onClick={(e) => e.stopPropagation()}
+            aria-hidden={!menuOpen}
+          >
+            <span className="board-nail" aria-hidden="true" />
+            <div className="board-head">Character actions</div>
+            <button
+              type="button"
+              className="board-item"
+              disabled={busy || character.archived}
+              tabIndex={menuOpen ? 0 : -1}
+              onClick={archive}
+            >
+              <TentRune />
+              <span>
+                Archive
+                <span className="sub">
+                  {character.archived
+                    ? 'Already at camp.'
+                    : 'Sends it to sleep. Transcript and territory stay.'}
+                </span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="sheet-top">
+          <div className="niche">
+            <PortraitThumb characterId={character.id} race={character.race} />
+          </div>
+          <div className="ident">
+            <div className="holding" title={character.repo || character.territory.path}>
+              {character.repo || character.territory.path || character.id}
+            </div>
+            <div className="pennant">
+              <PennantRune />
+              <span className="branch" title={branch}>
+                {branch}
+              </span>
+              <span className="sheet-dot" aria-hidden="true" />
+              <span className="terr">{character.territory.mode === 'own' ? 'own territory' : 'shared territory'}</span>
+            </div>
+            <div className="build">
+              <span className="race">
+                <RaceRune race={character.race} />
+                {RACE_LABEL[character.race]}
+              </span>
+              {character.class && (
+                <>
+                  <span className="sheet-dot" aria-hidden="true" />
+                  <span className="stone drawer-chamfer-sm">{character.class}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div
+        className="condition"
+        data-cond={character.activity}
+        style={{ ['--cond' as string]: ACTIVITY_COLOR[character.activity] }}
+      >
+        <span className="gem" aria-hidden="true" />
+        <span className="cond-label">{ACTIVITY_LABEL[character.activity]}</span>
+        <span className="cond-note">{conditionNote(character)}</span>
       </div>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {working && (
+        <div className="quest-strip" role="status" aria-live="polite">
+          <span className="quest-spark" aria-hidden="true" />
+          <span>{questStatus(events)}</span>
+        </div>
+      )}
 
-      <div className="transcript">
+      <div className="log">
         {events.map((event, i) => (
           <TranscriptEntry key={i} event={event} />
         ))}
-        {character.activity === 'working' && <QuestIndicator text={questStatus(events)} />}
+        {error && (
+          <div className="entry note note--error">
+            <SigilRune className="rune" />
+            {error}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
       <form
-        className="compose"
+        className="desk"
         onSubmit={(e) => {
           e.preventDefault()
           send()
         }}
       >
-        <textarea
-          ref={composeRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={character.activity === 'working' ? 'Message this character — delivered once its current quest ends…' : 'Message this character…'}
-          disabled={busy}
-          rows={2}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              send()
-            }
-          }}
-        />
-        <Button type="submit" disabled={busy || !draft.trim()}>
-          Send
-        </Button>
+        <div className="sheetline">
+          <textarea
+            ref={composeRef}
+            className="vellum"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={working ? 'Message this character — delivered once its current quest ends…' : 'Message this character…'}
+            disabled={busy}
+            rows={3}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                send()
+              }
+            }}
+          />
+          <button type="submit" className="press" disabled={busy || !draft.trim()} aria-label="Send">
+            <QuillRune />
+          </button>
+        </div>
+        <div className="desk-foot">
+          <span>Enter sends · Shift+Enter new line</span>
+          {working && (
+            <span className="warband">
+              <button
+                type="button"
+                className="plaque drawer-chamfer-sm"
+                disabled={busy}
+                onClick={() => runAction(() => interruptCharacter(character.id))}
+              >
+                <PauseRune /> Interrupt
+              </button>
+              <button
+                type="button"
+                className="plaque plaque--halt drawer-chamfer-sm"
+                disabled={busy}
+                onClick={() => runAction(() => stopCharacter(character.id))}
+              >
+                <HaltRune /> Stop
+              </button>
+            </span>
+          )}
+        </div>
       </form>
     </>
   )
+}
+
+// The line under the condition: what the activity means for the user right
+// now. Presence only tells them anything when the character is at camp, so
+// it is spelled out there and left out of the other three.
+function conditionNote(character: Character): string {
+  switch (character.activity) {
+    case 'working':
+      return 'out on a quest'
+    case 'waiting':
+      return 'waiting on your answer'
+    case 'failed':
+      return 'its quest failed'
+    default:
+      return character.presence === 'asleep' ? 'asleep at camp' : 'awake at camp'
+  }
 }
 
 // The one field worth showing on a collapsed tool row, in the order a tool
@@ -406,15 +505,21 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
   switch (event.kind) {
     case 'user':
       return (
-        <ChatBubble variant="user" label="You">
-          <p>{event.text}</p>
-        </ChatBubble>
+        <div className="entry strip">
+          <div className="said">{event.text}</div>
+          <span className="seal" aria-hidden="true">
+            <SigilRune className="rune" />
+          </span>
+        </div>
       )
     case 'assistant':
       return (
-        <ChatBubble variant="assistant">
-          <Markdown text={event.text ?? ''} />
-        </ChatBubble>
+        <div className="entry">
+          <SigilRune className="rune" />
+          <div className="said">
+            <Markdown text={event.text ?? ''} />
+          </div>
+        </div>
       )
     case 'thinking':
       return (
@@ -425,7 +530,7 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
     case 'tool_call': {
       const summary = summarizeToolInput(event.tool_input)
       return (
-        <Collapsible label={`→ ${toolLabel(event.tool_name)}`} summary={summary ?? undefined}>
+        <Collapsible label={toolLabel(event.tool_name)} summary={summary ?? undefined}>
           {event.tool_input !== undefined ? (
             <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 20000)}</pre>
           ) : (
@@ -436,9 +541,10 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
     }
     case 'error':
       return (
-        <ChatBubble variant="error">
-          <p>{event.text}</p>
-        </ChatBubble>
+        <div className="entry note note--error">
+          <SigilRune className="rune" />
+          {event.text}
+        </div>
       )
     default: {
       const raw = rawProviderLine(event.text ?? '')
@@ -450,9 +556,10 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
         )
       }
       return (
-        <ChatBubble variant="system">
-          <p>{event.text}</p>
-        </ChatBubble>
+        <div className="entry note note--system">
+          <SigilRune className="rune" />
+          {event.text}
+        </div>
       )
     }
   }

@@ -132,6 +132,111 @@ export function UnreadDot({ className }: { className?: string }) {
   return <span className={className ?? 'unread-dot'} aria-hidden="true" />
 }
 
+// Session-drawer chrome marks. Same 16x16 pixel-block grid as the runes
+// above, all on currentColor so a plate or a menu row tints its own icon.
+export function CloseRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      {[3, 5, 7, 9, 11].map((v) => (
+        <rect key={`a${v}`} x={v} y={v} width={2} height={2} fill="currentColor" />
+      ))}
+      {[3, 5, 9, 11].map((v) => (
+        <rect key={`b${v}`} x={14 - v} y={v} width={2} height={2} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
+
+export function MenuRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      {[2, 7, 12].map((y) => (
+        <rect key={y} x={7} y={y} width={2} height={2} fill="currentColor" />
+      ))}
+    </svg>
+  )
+}
+
+// Territory mark: a pennant on its pole, for the branch a character works on.
+export function PennantRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={3} y={2} width={2} height={12} fill="currentColor" />
+      <rect x={5} y={3} width={7} height={2} fill="currentColor" />
+      <rect x={5} y={5} width={5} height={2} fill="currentColor" />
+      <rect x={5} y={7} width={3} height={2} fill="currentColor" />
+    </svg>
+  )
+}
+
+// Archive mark: the camp tent a character returns to, kept and reversible.
+export function TentRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={7} y={2} width={2} height={2} fill="currentColor" />
+      <rect x={5} y={4} width={2} height={2} fill="currentColor" />
+      <rect x={9} y={4} width={2} height={2} fill="currentColor" />
+      <rect x={3} y={6} width={2} height={2} fill="currentColor" />
+      <rect x={11} y={6} width={2} height={2} fill="currentColor" />
+      <rect x={1} y={8} width={2} height={4} fill="currentColor" />
+      <rect x={13} y={8} width={2} height={4} fill="currentColor" />
+      <rect x={7} y={4} width={2} height={8} fill="currentColor" />
+      <rect x={1} y={12} width={14} height={2} fill="currentColor" />
+    </svg>
+  )
+}
+
+export function PauseRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={4} y={2} width={3} height={12} fill="currentColor" />
+      <rect x={9} y={2} width={3} height={12} fill="currentColor" />
+    </svg>
+  )
+}
+
+export function HaltRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={3} y={3} width={10} height={10} fill="currentColor" />
+    </svg>
+  )
+}
+
+// Send mark: a quill laid across the wax press that closes a message.
+export function QuillRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={10} y={2} width={4} height={2} fill="currentColor" />
+      <rect x={8} y={4} width={4} height={2} fill="currentColor" />
+      <rect x={6} y={6} width={4} height={2} fill="currentColor" />
+      <rect x={4} y={8} width={4} height={2} fill="currentColor" />
+      <rect x={3} y={10} width={3} height={2} fill="currentColor" />
+      <rect x={2} y={12} width={2} height={2} fill="currentColor" />
+    </svg>
+  )
+}
+
+// The mark stamped in the margin beside a character's own words, and in the
+// wax seal on the user's. A lozenge, so it reads at 12px.
+export function SigilRune({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className ?? 'rune'} shapeRendering="crispEdges" aria-hidden="true">
+      <rect x={7} y={2} width={2} height={2} fill="currentColor" />
+      <rect x={5} y={4} width={2} height={2} fill="currentColor" />
+      <rect x={9} y={4} width={2} height={2} fill="currentColor" />
+      <rect x={3} y={6} width={2} height={2} fill="currentColor" />
+      <rect x={11} y={6} width={2} height={2} fill="currentColor" />
+      <rect x={7} y={7} width={2} height={2} fill="currentColor" />
+      <rect x={3} y={8} width={2} height={2} fill="currentColor" />
+      <rect x={11} y={8} width={2} height={2} fill="currentColor" />
+      <rect x={5} y={10} width={2} height={2} fill="currentColor" />
+      <rect x={9} y={10} width={2} height={2} fill="currentColor" />
+      <rect x={7} y={12} width={2} height={2} fill="currentColor" />
+    </svg>
+  )
+}
+
 // Disclosure arrow for the transcript's collapsed rows, drawn as a stepped
 // stack of blocks so it sits in the same pixel grammar as the runes above
 // instead of a font arrow. Points right; the row rotates it when open.

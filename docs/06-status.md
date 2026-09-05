@@ -107,6 +107,15 @@ character-model-redesign spec created, ready to implement)
   an already-archived session (e.g. its process finishing after being archived) cannot
   silently unarchive it. No process side effect. Verified live against the real running
   service and through the real browser UI.
+- [chat-transcript-rendering](sdd/specs/chat-transcript-rendering.md) — validated. The
+  session drawer renders a character's markdown as markdown (tables, code, lists and
+  headings stay inside the bubble, wide ones scrolling in their own box), collapses
+  reasoning, tool calls and raw provider lines behind a chevron, and shows a live
+  indicator naming what the character is doing while it works. Reasoning is a new
+  transcript event kind: cursor-agent's streamed deltas are joined into one block per run,
+  and Claude Code's own thinking blocks ship redacted, so its characters show none.
+  Verified live against the real service, including a dashboard-wide crash found on the
+  way (a kit's proportion flag landing in the camp palette) and fixed.
 
 Index in [sdd/README.md](sdd/README.md).
 

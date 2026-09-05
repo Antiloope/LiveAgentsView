@@ -3,6 +3,8 @@
   border: 2px solid #8a6a40;
   background: #fff8e8;
   max-width: 92%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ui-bubble p {
   margin: 0;
@@ -20,20 +22,12 @@
   background: #e9dcbd;
   border-color: var(--gold);
 }
+/* What the user typed is shown exactly as typed, line breaks included. */
+.ui-bubble--user p {
+  white-space: pre-wrap;
+}
 .ui-bubble--assistant {
   align-self: flex-start;
-}
-.ui-bubble--tool {
-  align-self: flex-start;
-  font-family: ui-monospace, 'SF Mono', monospace;
-  font-size: 0.78rem;
-  background: #e4dcc2;
-  color: var(--ink-soft);
-}
-.ui-bubble--tool pre {
-  margin: 0.3rem 0 0;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 .ui-bubble--error {
   border-color: var(--danger);

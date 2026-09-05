@@ -36,7 +36,7 @@ export interface CursorClassOption {
   label: string
 }
 
-export type PilotEventKind = 'user' | 'assistant' | 'tool_call' | 'system' | 'error'
+export type PilotEventKind = 'user' | 'assistant' | 'tool_call' | 'thinking' | 'system' | 'error'
 
 export interface PilotEvent {
   kind: PilotEventKind

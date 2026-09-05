@@ -52,6 +52,7 @@ const (
 	EventUser      = "user"
 	EventAssistant = "assistant"
 	EventToolCall  = "tool_call"
+	EventThinking  = "thinking"
 	EventSystem    = "system"
 	EventError     = "error"
 )
@@ -122,6 +123,7 @@ type pilotChar struct {
 	stoppedByUser bool // set before killing so exit handling reports READY, not FAILED
 	interrupted   bool // set before sending an interrupt request so the result line reports READY, not FAILED
 	lastText      string
+	thinking      []string // cursor-agent reasoning deltas, accumulated until the run they belong to closes
 	queue         []string // messages sent while working, delivered in order as each turn ends
 	dismissed     bool     // set by Dismiss before killing; blocks any further persistence for this character
 }

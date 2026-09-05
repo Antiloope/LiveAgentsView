@@ -106,11 +106,12 @@ func buildInterruptRequest() []byte {
 }
 
 type claudeContentBlock struct {
-	Type  string          `json:"type"`
-	Text  string          `json:"text"`
-	ID    string          `json:"id"`
-	Name  string          `json:"name"`
-	Input json.RawMessage `json:"input"`
+	Type     string          `json:"type"`
+	Text     string          `json:"text"`
+	Thinking string          `json:"thinking"`
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Input    json.RawMessage `json:"input"`
 }
 
 type claudeAssistantLine struct {
@@ -172,6 +173,14 @@ func (m *Manager) handleClaudeLine(ctx context.Context, pc *pilotChar, line []by
 				pc.lastText = block.Text
 				pc.mu.Unlock()
 				m.emit(ctx, pc, Event{Kind: EventAssistant, Text: block.Text})
+			case "thinking":
+				// The CLI ships these blocks with the reasoning text
+				// stripped out — only a signature survives — so most of
+				// them carry nothing to show and become no event at all.
+				if block.Thinking == "" {
+					continue
+				}
+				m.emit(ctx, pc, Event{Kind: EventThinking, Text: block.Thinking})
 			case "tool_use":
 				m.emit(ctx, pc, Event{Kind: EventToolCall, ToolName: block.Name, ToolInput: block.Input, RequestID: block.ID})
 			}

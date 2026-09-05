@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import './ChatBubble.css'
 
-export type ChatBubbleVariant = 'user' | 'assistant' | 'tool' | 'error' | 'system'
+export type ChatBubbleVariant = 'user' | 'assistant' | 'error' | 'system'
 
 type Props = {
   variant?: ChatBubbleVariant

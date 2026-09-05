@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Character, PilotEvent } from './types'
 import { RACE_LABEL, ACTIVITY_COLOR, ACTIVITY_LABEL } from './sprites'
-import { Button, ChatBubble, HudLabel, PortraitThumb, SessionChrome } from './ui'
+import { Button, ChatBubble, Collapsible, HudLabel, Markdown, PortraitThumb, QuestIndicator, SessionChrome } from './ui'
 import {
   archiveCharacter,
   dismissCharacter,
@@ -197,7 +197,7 @@ function PilotChat({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
-  }, [events.length])
+  }, [events.length, character.activity])
 
   const canStop = character.activity === 'working'
   const canArchive = !character.archived
@@ -285,6 +285,7 @@ function PilotChat({
         {events.map((event, i) => (
           <TranscriptEntry key={i} event={event} />
         ))}
+        {character.activity === 'working' && <QuestIndicator text={questStatus(events)} />}
         <div ref={bottomRef} />
       </div>
 
@@ -317,26 +318,88 @@ function PilotChat({
   )
 }
 
+// The one field worth showing on a collapsed tool row, in the order a tool
+// is most likely to carry it. cursor-agent spells them in camelCase and
+// Claude Code in snake_case, so both spellings are listed.
+const TOOL_SUMMARY_FIELDS = [
+  'command',
+  'pattern',
+  'globPattern',
+  'query',
+  'searchTerm',
+  'file_path',
+  'filePath',
+  'path',
+  'prompt',
+  'url',
+  'targetDirectory',
+]
+
+function pickSummaryField(fields: Record<string, unknown>): string | null {
+  for (const field of TOOL_SUMMARY_FIELDS) {
+    const v = fields[field]
+    if (typeof v === 'string' && v !== '') return v.length > 300 ? v.slice(0, 300) + '…' : v
+  }
+  return null
+}
+
 // cursor-agent's tool_call payload wraps args in a discriminated union
 // alongside call bookkeeping — {"shellToolCall":{"args":{"command":...,
 // "parsingResult":{...}},"description":"..."},"toolCallId":"...",
 // "startedAtMs":"...","hookAdditionalContexts":[]} — nearly all of it noise
-// next to the one field worth showing. Pull that field out for a one-line
-// summary instead of dumping the whole thing; shapes with no such field
-// (Claude Code's flat tool_input) fall through to the raw JSON.
-function summarizeCursorToolInput(input: unknown): string | null {
+// next to the one field worth showing. Claude Code's tool_input is that
+// same field layout already flat, so both shapes are tried in turn and
+// anything neither matches keeps the raw JSON as its only detail.
+function summarizeToolInput(input: unknown): string | null {
   if (typeof input !== 'object' || input === null) return null
   for (const value of Object.values(input as Record<string, unknown>)) {
     if (typeof value !== 'object' || value === null) continue
     const args = (value as Record<string, unknown>).args
     if (typeof args !== 'object' || args === null) continue
-    const a = args as Record<string, unknown>
-    for (const field of ['command', 'query', 'pattern', 'path', 'file_path']) {
-      const v = a[field]
-      if (typeof v === 'string' && v !== '') return v.length > 300 ? v.slice(0, 300) + '…' : v
-    }
+    const summary = pickSummaryField(args as Record<string, unknown>)
+    if (summary !== null) return summary
   }
-  return null
+  return pickSummaryField(input as Record<string, unknown>)
+}
+
+// Claude Code names its tools for people (Bash, Read, Edit); cursor-agent
+// names them for its own union (shellToolCall), so trim that suffix to get
+// the same short word in the row.
+function toolLabel(name: string | undefined): string {
+  if (!name) return 'tool'
+  return name.endsWith('ToolCall') ? name.slice(0, -'ToolCall'.length) : name
+}
+
+// First line of a block, cut to something a single row can hold.
+function firstLine(text: string, max = 120): string {
+  const line = text.trim().split('\n')[0]
+  return line.length > max ? line.slice(0, max) + '…' : line
+}
+
+// A system event carrying a raw provider line (rate_limit_event and any
+// other type the daemon has no case for) is JSON, not a sentence: reformat
+// it so it can sit behind a collapsed row instead of filling the transcript.
+function rawProviderLine(text: string): string | null {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('{')) return null
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2)
+  } catch {
+    return null
+  }
+}
+
+// What the character is doing right now, read off the tail of its own
+// transcript — the last thing it did is the best available description of
+// the step it is in.
+function questStatus(events: PilotEvent[]): string {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]
+    if (event.kind === 'tool_call') return `Running ${toolLabel(event.tool_name)}…`
+    if (event.kind === 'thinking') return 'Thinking…'
+    if (event.kind === 'assistant' || event.kind === 'user') break
+  }
+  return 'On the quest…'
 }
 
 function TranscriptEntry({ event }: { event: PilotEvent }) {
@@ -350,19 +413,25 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
     case 'assistant':
       return (
         <ChatBubble variant="assistant">
-          <p>{event.text}</p>
+          <Markdown text={event.text ?? ''} />
         </ChatBubble>
       )
-    case 'tool_call': {
-      const summary = summarizeCursorToolInput(event.tool_input)
+    case 'thinking':
       return (
-        <ChatBubble variant="tool" label={`→ ${event.tool_name || 'tool'}`}>
-          {summary !== null ? (
-            <p>{summary}</p>
+        <Collapsible tone="thinking" label="Reasoning" summary={firstLine(event.text ?? '')}>
+          <Markdown text={event.text ?? ''} />
+        </Collapsible>
+      )
+    case 'tool_call': {
+      const summary = summarizeToolInput(event.tool_input)
+      return (
+        <Collapsible label={`→ ${toolLabel(event.tool_name)}`} summary={summary ?? undefined}>
+          {event.tool_input !== undefined ? (
+            <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 20000)}</pre>
           ) : (
-            event.tool_input !== undefined && <pre>{JSON.stringify(event.tool_input, null, 2).slice(0, 2000)}</pre>
+            <p>No input recorded.</p>
           )}
-        </ChatBubble>
+        </Collapsible>
       )
     }
     case 'error':
@@ -371,11 +440,20 @@ function TranscriptEntry({ event }: { event: PilotEvent }) {
           <p>{event.text}</p>
         </ChatBubble>
       )
-    default:
+    default: {
+      const raw = rawProviderLine(event.text ?? '')
+      if (raw !== null) {
+        return (
+          <Collapsible tone="raw" label="provider line" summary={firstLine(raw.replace(/\s+/g, ' '))}>
+            <pre>{raw}</pre>
+          </Collapsible>
+        )
+      }
       return (
         <ChatBubble variant="system">
           <p>{event.text}</p>
         </ChatBubble>
       )
+    }
   }
 }
